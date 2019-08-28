@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<meta lang="en">
+<html>
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <title>Vital Vis</title>
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+    <!-- <link href="https://fonts.googleapis.com/css?family=Fredoka+One&display=swap" rel="stylesheet"> -->
+    <link href="https://fonts.googleapis.com/css?family=Black+Ops+One&display=swap" rel="stylesheet">
+
+    <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+    <!-- <script type="text/javascript" src="d3.min.js"></script> -->
+    <script type="text/javascript" src="./js/timeEventChart.js"></script>
+    <script type="text/javascript" src="./js/timeseriesLineChart.js"></script>
+
+    <style>
+      main > .container {
+        padding: 80px 15px 0;
+      }
+
+      .navbar-brand {
+        padding-top: .55rem;
+        padding-bottom: .75rem;
+        font-size: 1.4rem;
+        color: #FF4500;
+        font-family: 'Black Ops One', cursive;
+        float: none;
+        /* background-color: rgba(0, 0, 0, .25); */
+        /* box-shadow: inset -1px 0 0 rgba(0, 0, 0, .25); */
+      }
+    </style>
+  </head>
+  <body>
+      <nav class="navbar fixed-top navbar-expand-lg p-0 shadow" style="background-color: rgb(51, 117, 59);">
+        <div class="navbar-brand mx-auto" style="color: rgb(240, 240, 240);" href="#">
+          &middot; Vital Vis &middot;
+            <!-- <img src="//placehold.it/120/ccff00" class="rounded-circle"> -->
+        </div>
+      </nav>
+    </nav>
+
+    <!-- Begin page content -->
+    <main role="main" class="flex-shrink-0">
+      <div class="container w-100 mb-4">
+        <form class="md-form d-flex justify-content-center w-100">
+          <div class="row">
+            <div class="col-7">
+              <div class="custom-file w-100">
+                <input type="file" class="custom-file-input" id="fileInput" onchange="loadFile()">
+                <label id="fileLabel" class="custom-file-label" for="fileInput">Choose CSV File</label>
+              </div>
+            </div>
+            <div class="col-5">
+              <div class="btn-group" role="group" aria-label="Button group with nested dropdown">
+                <button type="button" class="btn btn-secondary" onclick="redrawCharts()">
+                  Redraw
+                </button>
+                <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#settingsModal">
+                  Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+        
+        <div class="modal fade" id="settingsModal" tabindex="-1" role="dialog" aria-labelledby="settingsModalLabel" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="settingsModalLabel">View Settings</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <div class="modal-body">
+                <form>
+                  <div class="form-row">
+                    <div class="form-group col-md-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="" id="showPointsCheck" onchange="showPointsCheckChanged()">
+                        <label class="form-check-label" for="showPointsCheck">
+                          Show Data Points
+                        </label>
+                      </div>
+                    </div>
+                    <div class="form-group col-md-6">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="" id="showLinesCheck" onchange="showLinesCheckChanged()" checked>
+                        <label class="form-check-label" for="showLinesCheck">
+                          Show Line
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group col-md-12">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="" id="syncZoomCheck" onchange="syncZoomCheckChanged()" checked>
+                        <label class="form-check-label" for="syncZoomCheck">
+                          Synchronize Chart Zooming
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group col-md-12">
+                      <label for="curveModeSelect">Curve Display Mode:</label>
+                      <select class="form-control" id="curveModeSelect" onchange="curveSelectChanged()">
+                          <option selected>MonotoneX</option>
+                          <option>Linear</option>
+                          <option>Step</option>
+                          <option>Step After</option>
+                          <option>Step Before</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group col-md-12">
+                      <label for="heightRange">Chart Height:</label>
+                      <input type="range" class="custom-range" min="120" max="500" value="160" id="heightRange" onchange="heightChanged()">
+                    </div>
+                  </div>
+                </form>
+              </div>
+              <div class="modal-footer">
+                <!-- <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button> -->
+                <button type="button" class="btn btn-primary" data-dismiss="modal">Ok</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="container-fluid">
+        <div id="charts" class="mx-4"></div>
+        <hr>
+
+        <center>
+            <p>&copy; <a href="http://csteed.com">Chad A. Steed</a>
+                <script type="text/javascript">
+                    document.write(new Date().getFullYear());
+                </script>
+            </p>
+        </center>
+      </div>
+    </main>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+    <script>
+      const margin = {top: 10, right: 30, bottom: 40, left: 100};
+      const reader = new FileReader();
+      let dateExtent;
+      let eventsChartData;
+      let vitalsChartData;
+
+      const loadFile = () => {
+        const file = document.getElementById('fileInput').files[0];
+        reader.addEventListener("load", parseFile, false);
+        if (file) {
+          reader.readAsText(file);
+          $('#fileLabel').html(file.name);
+        }
+      }
+
+      const loadData = (data) => {
+        dateExtent = d3.extent(data, (d) => { return d.date; });
+        // console.log(dateExtent);
+
+        eventsChartData = [];
+        vitalsChartData = [];
+
+        const fluidData = data.filter((d) => {
+          return (d.Fluid_Group != 'NULL' && d.Fluid_Group.length != 0);
+        })
+
+        const fluidChartInfo = {
+          name: "Fluids",
+          data: fluidData,
+          chart: null,
+        };
+        eventsChartData.push(fluidChartInfo);
+        
+        const drugData = data.filter((d) => {
+          return (d.Drug_Group != 'NULL' && d.Drug_Group.length != 0);
+        })
+
+        const drugChartInfo = {
+          name: "Drugs",
+          data: drugData,
+          chart: null,
+        }
+        eventsChartData.push(drugChartInfo);
+
+        const vitalData = data.filter((d) => {
+          return (d.Vital_Group != 'NULL' && d.Vital_Group.length != 0);
+        });
+
+        const vitalGroups = d3.nest()
+                              .key((d) => d.Vital_Group)
+                              .key((d) => d.Vital_Name)
+                              .entries(vitalData);
+        
+        let bpSeriesValues = [];
+
+        vitalGroups.forEach(vitalGroup => {
+          vitalGroup.values.forEach(vitalName => {
+            newValues = [];
+    
+            if (vitalName.key === 'NIBPDias') {
+              vitalName.values.forEach(d => {
+                newValues.push({date: d.date, NIBPDias: d.Vital_Value});
+              });
+              bpSeriesValues = bpSeriesValues.concat(newValues);
+            } else if (vitalName.key === 'NIBPSys') {
+              vitalName.values.forEach(d => {
+                newValues.push({date: d.date, NIBPSys: d.Vital_Value});
+              });
+              bpSeriesValues = bpSeriesValues.concat(newValues);
+            } else if (vitalName.key === 'NIBPMean') {
+              vitalName.values.forEach(d => {
+                newValues.push({date: d.date, NIBPMean: d.Vital_Value});
+              });
+              bpSeriesValues = bpSeriesValues.concat(newValues);
+            } else {
+              vitalName.values.forEach(d => {
+                newValues.push({date: d.date, value: d.Vital_Value});
+              });
+              let groupSeries = {
+                name: `${vitalGroup.key}_${vitalName.key}`,
+                // name: vitalName.key,
+                data: newValues,
+                chart: null,
+              }
+              vitalsChartData.push(groupSeries);
+            }
+          });
+        });
+
+        bpSeriesValues = d3.nest()
+          .key((d) => d.date)
+          .entries(bpSeriesValues);
+        newBPValues = [];
+        bpSeriesValues.forEach(dateGroup => {
+          let bpValue = {};
+          dateGroup.values.forEach( dateValue => {
+            Object.keys(dateValue).forEach( function (key, index) {
+              bpValue[key] = dateValue[key];
+            })
+          })
+          newBPValues.push(bpValue);
+        });
+        vitalsChartData.push({
+          name: 'BloodPressure',
+          data: newBPValues,
+          chart: null,
+        });
+
+        const sortChartRecord = function (a, b) { 
+          if (a.name < b.name)
+            return -1;
+          else if (a.name > b.name) 
+            return 1;
+          return 0;
+        };
+
+        vitalsChartData.sort(sortChartRecord);
+        eventsChartData.sort(sortChartRecord);
+
+        // console.log(vitalsChartData);
+        // console.log(eventsChartData);
+
+        removeCharts();
+        createCharts();
+      }
+
+      const removeSpaces = (str) => {
+        return str.replace(/\s+/g, '');
+      }
+
+      const type =
+      ({UserTimestamp, Vital_Group, Vital_Name, Vital_Value, Drug_Group, Drug_Name, Drug_Dosage, Fluid_Group, Fluid_Name, Fluid_Dosage}) =>
+        ({date: new Date(UserTimestamp), Vital_Group: removeSpaces(Vital_Group), Vital_Name: removeSpaces(Vital_Name), Vital_Value: +Vital_Value, Drug_Group: removeSpaces(Drug_Group), Drug_Name: removeSpaces(Drug_Name), Drug_Dosage: +Drug_Dosage, Fluid_Group: removeSpaces(Fluid_Group), Fluid_Name: removeSpaces(Fluid_Name), Fluid_Dosage: +Fluid_Dosage});
+
+      const parseFile = () => {
+        data = d3.csvParse(reader.result, type);
+        // console.log(data);       
+        loadData(data);
+      }
+
+      const removeCharts = () => {
+        chartMap = null;
+        d3.select('#charts').selectAll("*").remove();
+      }
+
+      const getCurrentCurveFunction = () => {
+        const selectedCurve = $('#curveModeSelect').val();
+        // const curveSelect = document.getElementById('curveSelect');
+        // const selectedCurve = curveSelect.options[curveSelect.selectedIndex].text;
+        if (selectedCurve === 'Linear') {
+          return d3.curveLinear;
+        } else if (selectedCurve === 'MonotoneX') {
+          return d3.curveMonotoneX;
+        } else if (selectedCurve === 'Step') {
+          return d3.curveStep;
+        } else if (selectedCurve === 'Step After') {
+          return d3.curveStepAfter;
+        } else if (selectedCurve === 'Step Before') {
+          return d3.curveStepBefore;
+        }
+      }
+
+      const getDateTimeFunction = () => {
+        const currentDateTimeColumn = $('#datetimeColumnSelect').val();
+        return (d) => d[currentDateTimeColumn];
+      }
+
+      const createChartDiv = (chartData, chartDataList) => {
+        const chartName = chartData.name;
+        const chartDiv = document.createElement("div");
+        chartDiv.classList.add("media");
+        chartDiv.id = `${chartName}ChartDiv`;
+        const bodyDiv = document.createElement("div");
+        bodyDiv.classList.add("media-body");
+        bodyDiv.id = `${chartName}Chart`;
+        const heading = document.createElement("h6");
+        heading.classList.add("mt-0");
+        heading.classList.add("p-2");
+        heading.style = "background-color: rgb(245, 245, 245);"
+        const closeIcon = document.createElement("div");
+        closeIcon.classList.add("close");
+        closeIcon.type = "button";
+        closeIcon.id = `${chartName}CloseIcon`;
+        closeIcon['aria-label'] = "Close";
+        const span = document.createElement("span");
+        span['aria-hidden'] = "true";
+        span.innerHTML = "&times;";
+        closeIcon.append(span);
+        const columnNameText = document.createTextNode(chartName);
+        heading.append(closeIcon);
+        heading.append(columnNameText);
+        bodyDiv.append(heading);
+        chartDiv.append(bodyDiv);
+        document.getElementById('charts').append(chartDiv);
+
+        $(`#${chartName}CloseIcon`).click(function () {
+          console.log(chartDataList);
+          const index = chartDataList.indexOf(chartData);
+          chartDataList.splice(index, 1);
+          console.log(chartDataList);
+          d3.select(`#${chartName}ChartDiv`).remove();
+        });
+
+        return bodyDiv.id;
+      }
+
+      const createCharts = () => {
+        const showPoints = document.getElementById('showPointsCheck').checked;
+        const showLines = document.getElementById('showLinesCheck').checked;
+        let divWidth = document.getElementById('charts').clientWidth;
+        const chartHeight = document.getElementById('heightRange').value;
+
+        eventsChartData.forEach( (chartData) => {
+          const chartDivID = createChartDiv(chartData, eventsChartData);
+          let eventCategoryAccessor;
+          let eventSubCategoryAccessor;
+          let eventChartHeight;
+          if (chartData.name === 'Fluids') {
+            eventCategoryAccessor = d => d.Fluid_Group;
+            eventSubCategoryAccessor = d => d.Fluid_Name;
+            eventChartHeight = 90;
+          } else if (chartData.name === 'Drugs') {
+            eventCategoryAccessor = d => d.Drug_Group;
+            eventSubCategoryAccessor = d => d.Drug_Name;
+            eventChartHeight = 160;
+          }
+          chartData.chart = timeEventChart()
+            .margin(margin)
+            .dateExtent(dateExtent)
+            .width(divWidth)
+            .height(eventChartHeight)
+            .dateValue((d) => d.date)
+            .eventCategory(eventCategoryAccessor)
+            .eventSubCategory(eventSubCategoryAccessor)
+            .zoomedHandler(function (t) {
+              if (document.getElementById('syncZoomCheck').checked) {
+                vitalsChartData.forEach( function (aChart, column, map) {
+                  if (chartData.chart != aChart.chart) {
+                    aChart.chart.applyTransform(t);
+                  }
+                });
+                eventsChartData.forEach( function (aChart, column, map) {
+                  if (chartData.chart != aChart.chart) {
+                    aChart.chart.applyTransform(t);
+                  }
+                });
+              }
+            });
+            // .titleText(`${chartData.name} Events`);
+          
+          d3.select(`#${chartDivID}`).call(chartData.chart, chartData.data);
+        });
+
+        vitalsChartData.forEach((chartData) => {
+          // console.log(chartData);
+          const chartDivID = createChartDiv(chartData, vitalsChartData);
+          // console.log(chartDivID);
+
+          if (chartData.name === 'BloodPressure') {
+            chartData.chart = timeseriesLineChart()
+              .margin(margin)
+              .dateExtent(dateExtent)
+              .width(divWidth)
+              .height(chartHeight)
+              .showPoints(showPoints)
+              .showLine(showLines)
+              .curveFunction(getCurrentCurveFunction())
+              .dateValue((d) => d.date)
+              .zoomedHandler(function (t) {
+                if (document.getElementById('syncZoomCheck').checked) {
+                  vitalsChartData.forEach( function (aChart, column, map) {
+                    if (chartData.chart != aChart.chart) {
+                      aChart.chart.applyTransform(t);
+                    }
+                  });
+                  eventsChartData.forEach( function (aChart, column, map) {
+                    if (chartData.chart != aChart.chart) {
+                      aChart.chart.applyTransform(t);
+                    }
+                  });
+                }
+              })
+              .yValue((d) => d.NIBPMean)
+              .highValue((d) => d.NIBPSys)
+              .lowValue((d) => d.NIBPDias);
+          } else {
+            chartData.chart = timeseriesLineChart()
+              .margin(margin)
+              .dateExtent(dateExtent)
+              .width(divWidth)
+              .height(chartHeight)
+              .showPoints(showPoints)
+              .showLine(showLines)
+              .curveFunction(getCurrentCurveFunction())
+              .dateValue((d) => d.date)
+              .zoomedHandler(function (t) {
+                if (document.getElementById('syncZoomCheck').checked) {
+                  vitalsChartData.forEach( function (aChart, column, map) {
+                    if (chartData.chart != aChart.chart) {
+                      aChart.chart.applyTransform(t);
+                    }
+                  });
+                  eventsChartData.forEach( function (aChart, column, map) {
+                    if (chartData.chart != aChart.chart) {
+                      aChart.chart.applyTransform(t);
+                    }
+                  });
+                }
+              })
+              .yValue((d) => d.value);
+          }
+          d3.select(`#${chartDivID}`).call(chartData.chart, chartData.data);
+        });
+
+
+        /*
+        numberColumns.forEach( function (numColumn) {
+          const chartDiv = document.createElement("div");
+          chartDiv.classList.add("media");
+          chartDiv.id = `${numColumn}ChartDiv`;
+          // chartDiv.id = `${numColumn}Chart`;
+          const bodyDiv = document.createElement("div");
+          bodyDiv.classList.add("media-body");
+          bodyDiv.id = `${numColumn}Chart`;
+
+          const heading = document.createElement("h6");
+          heading.classList.add("mt-0");
+          heading.classList.add("p-2");
+          heading.style = "background-color: rgb(245, 245, 245);"
+          const closeIcon = document.createElement("div");
+          closeIcon.classList.add("close");
+          closeIcon.type = "button";
+          closeIcon.id = `${numColumn}CloseIcon`;
+          closeIcon['aria-label'] = "Close";
+          const span = document.createElement("span");
+          span['aria-hidden'] = "true";
+          span.innerHTML = "&times;";
+          // timesIcon = document.createTextNode("&times;");
+          // timesIcon.innerHTML
+          // span.append(timesIcon);
+          closeIcon.append(span);
+          const columnNameText = document.createTextNode(numColumn);
+          heading.append(closeIcon);
+          heading.append(columnNameText);
+          bodyDiv.append(heading);
+          chartDiv.append(bodyDiv);
+          document.getElementById('charts').append(chartDiv);
+
+          $(`#${numColumn}CloseIcon`).click(function () { 
+            const index = numberColumns.indexOf(numColumn);
+            numberColumns.splice(index, 1);
+            d3.select(`#${numColumn}ChartDiv`).remove();
+          });
+
+          let chart = timeseriesLineChart()
+            .margin(margin)
+            .width(divWidth)
+            .height(chartHeight)
+            .showPoints(showPoints)
+            .showLine(showLines)
+            .curveFunction(getCurrentCurveFunction())
+            .dateValue(getDateTimeFunction())
+            .zoomedHandler(function (t) {
+              // chartMap.get("high").applyTransform(t);
+              if (document.getElementById('syncZoomCheck').checked) {
+                chartMap.forEach( function (aChart, column, map) {
+                  if (chart != aChart) {
+                    aChart.applyTransform(t);
+                  }
+                });
+              }
+            })
+            .yValue((d) => d[numColumn]);
+          d3.select(`#${numColumn}Chart`).call(chart, chartData);
+          chartMap.set(numColumn, chart);
+        });
+        */
+      }
+    
+
+      const syncZoomCheckChanged = () => {
+        const sync = document.getElementById('syncZoomCheck').checked;
+        if (sync) {
+          vitalsChartData.forEach( function (chartData, column, map) {
+            chartData.chart.resetZoom();
+          });
+          eventsChartData.forEach( function (chartData, column, map) {
+            chartData.chart.resetZoom();
+          });
+        }
+      }
+
+      const showPointsCheckChanged = () => {
+        const check = document.getElementById('showPointsCheck');
+        const checked = check.checked;
+        vitalsChartData.forEach(function (chartData, column, map) {
+          chartData.chart.showPoints(checked);
+        });
+      }
+
+      const showLinesCheckChanged = () => {
+        const check = document.getElementById('showLinesCheck');
+        const checked = check.checked;
+        vitalsChartData.forEach(function (chartData, column, map) {
+          chartData.chart.showLine(checked);
+        });
+      }
+
+      const curveSelectChanged = () => {
+        const newCurveFunction = getCurrentCurveFunction();
+        vitalsChartData.forEach(function (chartData, column, map) {
+          chartData.chart.curveFunction(newCurveFunction);
+        });
+      }
+
+      const heightChanged = () => {
+        const chartHeight = document.getElementById('heightRange').value;
+        vitalsChartData.forEach(function (chartData, column, map) {
+          chartData.chart.height(chartHeight);
+        });
+        // eventsChartData.forEach(function (chartData, column, map) {
+        //   chartData.chart.height(chartHeight);
+        // });
+      }
+
+      const redrawCharts = () => {
+        removeCharts();
+        createCharts();
+      }
+    </script>
+  </body>
+</html>
