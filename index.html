@@ -137,11 +137,14 @@
         </div>
       </div>
       <div class="container-fluid">
+        <figure class="d-flex justify-content-center figure" id="placeholder">
+            <img src= "https://picsum.photos/600/400?grayscale" />
+        </figure>
         <div id="charts" class="mx-4"></div>
         <hr>
 
         <center>
-            <p>&copy; <a href="http://csteed.com">Chad A. Steed</a>
+            <p>&copy; <a href="https://www.ornl.gov">Oak Ridge National Laboratory</a>
                 <script type="text/javascript">
                     document.write(new Date().getFullYear());
                 </script>
@@ -173,7 +176,6 @@
 
       const loadData = (data) => {
         dateExtent = d3.extent(data, (d) => { return d.date; });
-        // console.log(dateExtent);
 
         eventsChartData = [];
         vitalsChartData = [];
@@ -299,6 +301,7 @@
       const removeCharts = () => {
         chartMap = null;
         d3.select('#charts').selectAll("*").remove();
+        d3.select('#placeholder').remove();
       }
 
       const getCurrentCurveFunction = () => {
