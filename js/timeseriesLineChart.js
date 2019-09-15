@@ -132,7 +132,7 @@ var timeseriesLineChart = function () {
           .attr("id", `clip_${chartID}`)
         .append("rect")
           .attr("width", width)
-          .attr("height", height);
+          .attr("height", height+2);
 
       xScale = d3.scaleTime()
         .domain(dateExtent)
@@ -221,7 +221,8 @@ var timeseriesLineChart = function () {
           .text(titleText);
       }
 
-      svg.call(zoom);
+      svg.call(zoom)
+        .on("wheel.zoom", null);
     }
   }
 

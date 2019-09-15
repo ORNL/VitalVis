@@ -191,7 +191,7 @@ var timeEventChart = function () {
             .attr("x", function (d) { return xScale(dateValue(d)); })
             .attr("y", function (d) { return categoryScale(eventCategory(d)); })
             .attr("height", 7)
-            .attr("width", 5)
+            .attr("width", 7)
             .attr("transform", 'translate(' + -7/2. + ',' + -7/2. + ')')
             .attr("fill", colorScale(category))
             .attr("opacity", 0.6)

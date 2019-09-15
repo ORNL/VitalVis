@@ -10,12 +10,13 @@
 
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
 
     <!-- <link href="https://fonts.googleapis.com/css?family=Fredoka+One&display=swap" rel="stylesheet"> -->
     <link href="https://fonts.googleapis.com/css?family=Black+Ops+One&display=swap" rel="stylesheet">
 
     <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
-    <!-- <script type="text/javascript" src="d3.min.js"></script> -->
     <script type="text/javascript" src="./js/timeEventChart.js"></script>
     <script type="text/javascript" src="./js/timeseriesLineChart.js"></script>
 
@@ -52,8 +53,8 @@
           <div class="row">
             <div class="col-7">
               <div class="custom-file w-100">
-                <input type="file" class="custom-file-input" id="fileInput" onchange="loadFile()">
-                <label id="fileLabel" class="custom-file-label" for="fileInput">Choose CSV File</label>
+                <input type="file" class="custom-file-input" id="fileInput" onchange="loadFiles()" multiple>
+                <label id="fileLabel" class="custom-file-label" for="fileInput">Choose CSV File(s)</label>
               </div>
             </div>
             <div class="col-5">
@@ -83,7 +84,7 @@
                   <div class="form-row">
                     <div class="form-group col-md-6">
                       <div class="form-check">
-                        <input class="form-check-input" type="checkbox" value="" id="showPointsCheck" onchange="showPointsCheckChanged()">
+                        <input class="form-check-input" type="checkbox" value="" id="showPointsCheck" onchange="showPointsCheckChanged()" checked>
                         <label class="form-check-label" for="showPointsCheck">
                           Show Data Points
                         </label>
@@ -112,10 +113,10 @@
                     <div class="form-group col-md-12">
                       <label for="curveModeSelect">Curve Display Mode:</label>
                       <select class="form-control" id="curveModeSelect" onchange="curveSelectChanged()">
-                          <option selected>MonotoneX</option>
+                          <option>MonotoneX</option>
                           <option>Linear</option>
                           <option>Step</option>
-                          <option>Step After</option>
+                          <option selected>Step After</option>
                           <option>Step Before</option>
                       </select>
                     </div>
@@ -137,6 +138,15 @@
         </div>
       </div>
       <div class="container-fluid">
+        <form>
+          <div class="form-group row justify-content-center">
+              <label for="fileDataSelect" class="col-sm-3 col-form-label">Choose File to Visualize: </label>
+              <div class="col-sm-6">
+                <select class="form-control" id="fileDataSelect" onchange="fileDataSelectChanged()"></select>
+              </div>
+          </div>
+        </form>
+
         <figure class="d-flex justify-content-center figure" id="placeholder">
             <img src= "https://picsum.photos/600/400?grayscale" />
         </figure>
@@ -160,18 +170,61 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
     <script>
       const margin = {top: 10, right: 30, bottom: 40, left: 100};
-      const reader = new FileReader();
+      // const reader = new FileReader();
+      let fileDataMap = new Map();
       let dateExtent;
       let eventsChartData;
       let vitalsChartData;
 
-      const loadFile = () => {
-        const file = document.getElementById('fileInput').files[0];
-        reader.addEventListener("load", parseFile, false);
-        if (file) {
-          reader.readAsText(file);
-          $('#fileLabel').html(file.name);
+      // $('.select-file-data').dropdown();
+
+      const loadFiles = () => {
+        const files = document.getElementById('fileInput').files;
+        if (files) {
+          $('#fileDataSelect').find('option').remove();
+          removeCharts();
+          fileDataMap = new Map();
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const reader = new FileReader();
+            reader.onload = (f) => {
+              const fileData = d3.csvParse(reader.result, type);
+              fileDataMap.set(file.name, fileData);
+              // console.log($(".selected-file-data"));
+              let fileOption = document.createElement('option');
+              fileOption.text = file.name;
+              document.getElementById('fileDataSelect').append(fileOption);
+              if (fileDataMap.size == 1) {
+                fileDataSelectChanged();
+              }
+            }
+            reader.readAsText(file);
+          }
         }
+        // console.log(fileDataMap);
+        // const file = document.getElementById('fileInput').files[0];
+        // reader.addEventListener("load", parseFile, false);
+        // if (file) {
+        //   reader.readAsText(file);
+        //   $('#fileLabel').html(file.name);
+        // }
+      }
+
+      const type =
+      ({UserTimestamp, Vital_Group, Vital_Name, Vital_Value, Drug_Group, Drug_Name, Drug_Dosage, Fluid_Group, Fluid_Name, Fluid_Dosage}) =>
+        ({date: new Date(UserTimestamp), Vital_Group: removeSpaces(Vital_Group), Vital_Name: removeSpaces(Vital_Name), Vital_Value: +Vital_Value, Drug_Group: removeSpaces(Drug_Group), Drug_Name: removeSpaces(Drug_Name), Drug_Dosage: +Drug_Dosage, Fluid_Group: removeSpaces(Fluid_Group), Fluid_Name: removeSpaces(Fluid_Name), Fluid_Dosage: +Fluid_Dosage});
+
+      // const parseFile = (fileText) => {
+      //   let data = d3.csvParse(fileText, type);
+      //   // console.log(data);       
+      //   // loadData(data);
+      // }
+
+      const fileDataSelectChanged = () => {
+        let selectedFile = $('#fileDataSelect').val();
+        console.log(selectedFile);
+        let fileData = fileDataMap.get(selectedFile);
+        loadData(fileData);
       }
 
       const loadData = (data) => {
@@ -288,16 +341,6 @@
         return str.replace(/\s+/g, '');
       }
 
-      const type =
-      ({UserTimestamp, Vital_Group, Vital_Name, Vital_Value, Drug_Group, Drug_Name, Drug_Dosage, Fluid_Group, Fluid_Name, Fluid_Dosage}) =>
-        ({date: new Date(UserTimestamp), Vital_Group: removeSpaces(Vital_Group), Vital_Name: removeSpaces(Vital_Name), Vital_Value: +Vital_Value, Drug_Group: removeSpaces(Drug_Group), Drug_Name: removeSpaces(Drug_Name), Drug_Dosage: +Drug_Dosage, Fluid_Group: removeSpaces(Fluid_Group), Fluid_Name: removeSpaces(Fluid_Name), Fluid_Dosage: +Fluid_Dosage});
-
-      const parseFile = () => {
-        data = d3.csvParse(reader.result, type);
-        // console.log(data);       
-        loadData(data);
-      }
-
       const removeCharts = () => {
         chartMap = null;
         d3.select('#charts').selectAll("*").remove();
@@ -350,7 +393,7 @@
         const columnNameText = document.createTextNode(chartName);
         heading.append(closeIcon);
         heading.append(columnNameText);
-        bodyDiv.append(heading);
+        // bodyDiv.append(heading);
         chartDiv.append(bodyDiv);
         document.getElementById('charts').append(chartDiv);
 
