@@ -223,6 +223,7 @@ var timeEventChart = function () {
           .attr("y", -10)
           .style("text-anchor", "start")
           .style("font-weight", "bold")
+          .style("font-size", 12)
           .text(titleText);
       }
 

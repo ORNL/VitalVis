@@ -131,6 +131,8 @@ var timeseriesLineChart = function () {
       g.append("clipPath")
           .attr("id", `clip_${chartID}`)
         .append("rect")
+          .attr("x", 0)
+          .attr("y", -2)
           .attr("width", width)
           .attr("height", height+2);
 
@@ -218,6 +220,7 @@ var timeseriesLineChart = function () {
           .attr("y", -10)
           .style("text-anchor", "start")
           .style("font-weight", "bold")
+          .style("font-size", 12)
           .text(titleText);
       }
 

@@ -22,12 +22,12 @@
 
     <style>
       main > .container {
-        padding: 80px 15px 0;
+        padding: 60px 15px 0;
       }
 
       .navbar-brand {
         padding-top: .55rem;
-        padding-bottom: .75rem;
+        padding-bottom: .55rem;
         font-size: 1.4rem;
         color: #FF4500;
         font-family: 'Black Ops One', cursive;
@@ -51,13 +51,16 @@
       <div class="container w-100 mb-4">
         <form class="md-form d-flex justify-content-center w-100">
           <div class="row">
-            <div class="col-7">
+            <div class="col-5">
               <div class="custom-file w-100">
                 <input type="file" class="custom-file-input" id="fileInput" onchange="loadFiles()" multiple>
-                <label id="fileLabel" class="custom-file-label" for="fileInput">Choose CSV File(s)</label>
+                <label id="fileLabel" class="custom-file-label" for="fileInput">Open CSV File(s)</label>
               </div>
             </div>
-            <div class="col-5">
+            <div class="col-4">
+                <select class="form-control" id="fileDataSelect" onchange="fileDataSelectChanged()"></select>
+            </div>
+            <div class="col-3">
               <div class="btn-group" role="group" aria-label="Button group with nested dropdown">
                 <button type="button" class="btn btn-secondary" onclick="redrawCharts()">
                   Redraw
@@ -124,7 +127,7 @@
                   <div class="form-row">
                     <div class="form-group col-md-12">
                       <label for="heightRange">Chart Height:</label>
-                      <input type="range" class="custom-range" min="120" max="500" value="160" id="heightRange" onchange="heightChanged()">
+                      <input type="range" class="custom-range" min="120" max="500" value="140" id="heightRange" onchange="heightChanged()">
                     </div>
                   </div>
                 </form>
@@ -138,18 +141,18 @@
         </div>
       </div>
       <div class="container-fluid">
-        <form>
+        <!-- <form>
           <div class="form-group row justify-content-center">
               <label for="fileDataSelect" class="col-sm-3 col-form-label">Choose File to Visualize: </label>
               <div class="col-sm-6">
                 <select class="form-control" id="fileDataSelect" onchange="fileDataSelectChanged()"></select>
               </div>
           </div>
-        </form>
+        </form> -->
 
-        <figure class="d-flex justify-content-center figure" id="placeholder">
+        <!-- <figure class="d-flex justify-content-center figure" id="placeholder">
             <img src= "https://picsum.photos/600/400?grayscale" />
-        </figure>
+        </figure> -->
         <div id="charts" class="mx-4"></div>
         <hr>
 
@@ -169,7 +172,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
     <script>
-      const margin = {top: 10, right: 30, bottom: 40, left: 100};
+      const margin = {top: 20, right: 30, bottom: 40, left: 100};
       // const reader = new FileReader();
       let fileDataMap = new Map();
       let dateExtent;
@@ -422,13 +425,14 @@
           if (chartData.name === 'Fluids') {
             eventCategoryAccessor = d => d.Fluid_Group;
             eventSubCategoryAccessor = d => d.Fluid_Name;
-            eventChartHeight = 90;
+            eventChartHeight = 110;
           } else if (chartData.name === 'Drugs') {
             eventCategoryAccessor = d => d.Drug_Group;
             eventSubCategoryAccessor = d => d.Drug_Name;
             eventChartHeight = 160;
           }
           chartData.chart = timeEventChart()
+            .titleText(chartData.name)
             .margin(margin)
             .dateExtent(dateExtent)
             .width(divWidth)
@@ -462,6 +466,7 @@
 
           if (chartData.name === 'BloodPressure') {
             chartData.chart = timeseriesLineChart()
+              .titleText(chartData.name)
               .margin(margin)
               .dateExtent(dateExtent)
               .width(divWidth)
@@ -489,6 +494,7 @@
               .lowValue((d) => d.NIBPDias);
           } else {
             chartData.chart = timeseriesLineChart()
+              .titleText(chartData.name)
               .margin(margin)
               .dateExtent(dateExtent)
               .width(divWidth)
