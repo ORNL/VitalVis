@@ -447,6 +447,7 @@
             .width(divWidth)
             .height(eventChartHeight)
             .dateValue((d) => d.date)
+            .zoomWithWheel(true)
             .eventCategory(eventCategoryAccessor)
             .eventSubCategory(eventSubCategoryAccessor)
             .zoomedHandler(function (t) {
@@ -481,6 +482,7 @@
               .width(divWidth)
               .height(chartHeight)
               .showPoints(showPoints)
+              .zoomWithWheel(false)
               .showLine(showLines)
               .curveFunction(getCurrentCurveFunction())
               .dateValue((d) => d.date)
@@ -508,6 +510,7 @@
               .dateExtent(dateExtent)
               .width(divWidth)
               .height(chartHeight)
+              .zoomWithWheel(false)
               .showPoints(showPoints)
               .showLine(showLines)
               .curveFunction(getCurrentCurveFunction())

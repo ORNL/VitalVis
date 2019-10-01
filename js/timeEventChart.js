@@ -24,8 +24,10 @@ var timeEventChart = function () {
     // lowValue,
     showPoints = false,
     // showLine = true,
-    pointColor = d3.rgb(30,30,30,0.4);
+    pointColor = d3.rgb(30,30,30,0.4)
     // rangeFillColor = "#c6dbef";
+    panBuffer = 80,
+    zoomWithWheel = true;
 
   let chartData;
   let chartDiv;
@@ -51,7 +53,8 @@ var timeEventChart = function () {
 
   const zoom = d3.zoom()
     .scaleExtent([1, Infinity])
-    .translateExtent([[0,0], [width, height]])
+    // .translateExtent([[0,0], [width, height]])
+    .translateExtent([[-panBuffer,-panBuffer], [width+panBuffer, height+panBuffer]])
     .extent([[0,0], [width, height]])
     .on("zoom", zoomed);
 
@@ -215,7 +218,7 @@ var timeEventChart = function () {
         .attr("class", "axis axis--x")
         .attr("transform", "translate(0," + height + ")")
         .call(xAxis);
-      g.select(".domain").remove();
+      g.selectAll(".domain").remove();
 
       if (titleText) {
         g.append("text")
@@ -227,12 +230,26 @@ var timeEventChart = function () {
           .text(titleText);
       }
 
-      svg.call(zoom);
+      // svg.call(zoom);
+      if (zoomWithWheel) {
+        svg.call(zoom);
+      } else {
+        svg.call(zoom)
+          .on("wheel.zoom", null);
+      }
     }
   }
 
   function resizeChart() {
     drawChart();
+  }
+
+  chart.zoomWithWheel = function (value) {
+    if (!arguments.length) {
+      return zoomWithWheel;
+    }
+    zoomWithWheel = value;
+    return chart;
   }
 
   chart.applyTransform = function (newTransform) {

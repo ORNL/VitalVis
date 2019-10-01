@@ -22,7 +22,9 @@ var timeseriesLineChart = function () {
     showPoints = false,
     showLine = true,
     pointColor = d3.rgb(30,30,30,0.4),
-    rangeFillColor = "#c6dbef";
+    rangeFillColor = "#c6dbef",
+    panBuffer = 80,
+    zoomWithWheel = true;
 
   let chartData;
   let chartDiv;
@@ -47,23 +49,21 @@ var timeseriesLineChart = function () {
 
   const zoom = d3.zoom()
     .scaleExtent([1, Infinity])
-    .translateExtent([[0,0], [width, height]])
+    .translateExtent([[-panBuffer,-panBuffer], [width+panBuffer, height+panBuffer]])
     .extent([[0,0], [width, height]])
     .on("zoom", zoomed);
 
   function zoomed() {
     var t = d3.event.transform;
     var xt = t.rescaleX(xScale);
-    var yt = yScale;
+    // var yt = yScale;
 
     if (showLine) {
       svg.selectAll(".line")
-        // .transition()
-        // .duration(1000)
         .attr("d", d3.line()
           .curve(curveFunction)
           .x(function(d) { return xt(dateValue(d)); })
-          .y(function(d) { return yt(yValue(d)); }));
+          .y(function(d) { return yScale(yValue(d)); }));
     }
 
     if (lowValue && highValue) {
@@ -71,18 +71,19 @@ var timeseriesLineChart = function () {
         .attr("d", d3.area()
           .curve(curveFunction)
           .x(function(d) { return xt(dateValue(d)); })
-          .y0(function(d) { return yt(lowValue(d)); })
-          .y1(function(d) { return yt(highValue(d)); })
+          .y0(function(d) { return yScale(lowValue(d)); })
+          .y1(function(d) { return yScale(highValue(d)); })
         );
     }
 
     if (showPoints) {
       svg.selectAll("circle")
         .attr("cx", function(d) { return xt(dateValue(d)); })
-        .attr("cy", function(d) { return yt(yValue(d)); });
+        .attr("cy", function(d) { return yScale(yValue(d)); });
     }
+
     g.select(".axis--x").call(xAxis.scale(xt));
-    g.select(".axis--y").call(yAxis.scale(yt));
+    // g.select(".axis--y").call(yAxis.scale(yt));
     g.select(".domain").remove();
 
     if (zoomedHandler) {
@@ -212,7 +213,7 @@ var timeseriesLineChart = function () {
         .attr("class", "axis axis--x")
         .attr("transform", "translate(0," + height + ")")
         .call(xAxis);
-      g.select(".domain").remove();
+      g.selectAll(".domain").remove();
 
       if (titleText) {
         g.append("text")
@@ -224,13 +225,25 @@ var timeseriesLineChart = function () {
           .text(titleText);
       }
 
-      svg.call(zoom)
-        .on("wheel.zoom", null);
+      if (zoomWithWheel) {
+        svg.call(zoom);
+      } else {
+        svg.call(zoom)
+          .on("wheel.zoom", null);
+      }
     }
   }
 
   function resizeChart() {
     drawChart();
+  }
+
+  chart.zoomWithWheel = function (value) {
+    if (!arguments.length) {
+      return zoomWithWheel;
+    }
+    zoomWithWheel = value;
+    return chart;
   }
 
   chart.applyTransform = function (newTransform) {
