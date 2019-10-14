@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<meta lang="en">
+<html>
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <title>Vital Vis</title>
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+
+    <!-- <link href="https://fonts.googleapis.com/css?family=Fredoka+One&display=swap" rel="stylesheet"> -->
+    <link href="https://fonts.googleapis.com/css?family=Black+Ops+One&display=swap" rel="stylesheet">
+
+    <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+    <script type="text/javascript" src="./js/multilineTimeSeriesChart.js"></script>
+
+    <style>
+      main > .container {
+        padding: 60px 15px 0;
+      }
+
+      .navbar-brand {
+        padding-top: .55rem;
+        padding-bottom: .55rem;
+        font-size: 1.4rem;
+        color: #FF4500;
+        font-family: 'Black Ops One', cursive;
+        float: none;
+        /* background-color: rgba(0, 0, 0, .25); */
+        /* box-shadow: inset -1px 0 0 rgba(0, 0, 0, .25); */
+      }
+    </style>
+  </head>
+  <body>
+      <nav class="navbar fixed-top navbar-expand-lg p-0 shadow" style="background-color: rgb(51, 117, 59);">
+        <div class="navbar-brand mx-auto" style="color: rgb(240, 240, 240);" href="#">
+          &middot; Vital Vis Overlay Chart &middot;
+            <!-- <img src="//placehold.it/120/ccff00" class="rounded-circle"> -->
+        </div>
+      </nav>
+    </nav>
+
+    <!-- Begin page content -->
+    <main role="main" class="flex-shrink-0">
+      <div class="container w-100 mb-4">
+        <form class="md-form d-flex justify-content-center w-100">
+          <div class="row">
+            <div class="col-7">
+              <div class="custom-file w-100">
+                <input type="file" class="custom-file-input" id="fileInput" onchange="fileChanged()" multiple>
+                <label id="fileLabel" class="custom-file-label" for="fileInput">Open CSV File(s)</label>
+              </div>
+            </div>
+            <!-- <div class="col-4">
+                <select class="form-control" id="fileDataSelect" onchange="fileDataSelectChanged()"></select>
+            </div> -->
+            <div class="col-5">
+              <div class="btn-group" role="group" aria-label="Button group with nested dropdown">
+                <button type="button" class="btn btn-secondary" onclick="redrawCharts()">
+                  Redraw
+                </button>
+                <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#settingsModal">
+                  Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <form class="md-form d-flex justify-content-center w-100">
+          <div class="row w-100">
+            <div class="col">
+              <select class="form-control" id="drug-group-select" onchange="drugGroupSelectChanged()">
+                <option>Choose Drug Group</option>
+              </select>
+            </div>
+            <div class="col">
+              <select class="form-control" id="drug-name-select" onchange="drugNameSelectChanged()">
+                <option>Choose Drug Name</option>
+              </select>
+            </div>
+            <div class="col">
+              <select class="form-control" id="vital-group-select" onchange="vitalGroupSelectChanged()">
+                <option>Choose Vital Group</option>
+              </select>
+            </div>
+            <div class="col">
+              <select class="form-control" id="vital-name-select" onchange="vitalNameSelectChanged()">
+                <option>Choose Vital Name</option>
+              </select>
+            </div>
+          </div>
+        </form>
+        
+        <div class="modal fade" id="settingsModal" tabindex="-1" role="dialog" aria-labelledby="settingsModalLabel" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="settingsModalLabel">View Settings</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <div class="modal-body">
+                <form>
+                  <div class="form-row">
+                    <div class="form-group col-md-12">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="" id="showChangeValueCheck" onchange="showChangeValueCheckChanged()" checked>
+                        <label class="form-check-label" for="showChangeValueCheck">
+                          Show Change in Value
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group col-md-12">
+                      <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="" id="labelCasesCheck" onchange="labelCasesCheckChanged()">
+                        <label class="form-check-label" for="labelCasesCheck">
+                          Label Case Lines
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group col-md-12">
+                      <label for="curveModeSelect">Curve Display Mode:</label>
+                      <select class="form-control" id="curveModeSelect" onchange="curveSelectChanged()">
+                          <option>MonotoneX</option>
+                          <option>Linear</option>
+                          <option>Step</option>
+                          <option selected>Step After</option>
+                          <option>Step Before</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group col-md-12">
+                      <label for="elapsedTimeRange">Elapsed Minutes Range:</label>
+                      <input type="range" class="custom-range" min="10" max="240" value="60" id="elapsedTimeRange" onchange="elapsedTimeRangeChanged()">
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group col-md-12">
+                      <label for="heightRange">Chart Height:</label>
+                      <input type="range" class="custom-range" min="140" max="500" value="180" id="heightRange" onchange="heightChanged()">
+                    </div>
+                  </div>
+                </form>
+              </div>
+              <div class="modal-footer">
+                <!-- <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button> -->
+                <button type="button" class="btn btn-primary" data-dismiss="modal">Ok</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="container-fluid">
+        <!-- <form>
+          <div class="form-group row justify-content-center">
+              <label for="fileDataSelect" class="col-sm-3 col-form-label">Choose File to Visualize: </label>
+              <div class="col-sm-6">
+                <select class="form-control" id="fileDataSelect" onchange="fileDataSelectChanged()"></select>
+              </div>
+          </div>
+        </form> -->
+
+        <!-- <figure class="d-flex justify-content-center figure" id="placeholder">
+            <img src= "https://picsum.photos/600/400?grayscale" />
+        </figure> -->
+
+        <div class="position-relative overflow-hidden p-3 p-md-5 m-md-3 text-center bg-light" id="placeholder">
+          <div class="col-md-8 p-lg-6 mx-auto my-6">
+            <h1 class="display-4 font-weight-normal" style="font-family: 'Black Ops One', cursive;">Overlay Chart</h1>
+            <p class="lead font-weight-normal">Use the "Open CSV File(s)" button above to read local files into this web page for analysis. The files must be stored in the ORNL CSV format with column headers. Once read, select the drug group, drug name, vital group, and vital name to show plots overlaying each case from the data. The "Redraw" button can be used to redraw the charts if the window is resized. Chart settings can be modified using the "Settings" dialog.</p>
+          </div>
+          <a class="btn btn-secondary" href="video/overlay-demo-video.mov" target="blank">Demonstration Video</a>
+        </div>
+
+        <div id="charts" class="mx-4"></div>
+        <hr>
+
+        <center>
+            <p>&copy; <a href="https://www.ornl.gov">Oak Ridge National Laboratory</a>
+                <script type="text/javascript">
+                    document.write(new Date().getFullYear());
+                </script>
+            </p>
+        </center>
+      </div>
+    </main>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    <script>
+      const margin = {top: 50, right: 20, bottom: 34, left: 60};
+      let ridgeOverlap = 8;
+      let chartData;
+      let drugGroupNames;
+      let vitalGroupNames;
+      let chart;
+
+      const type =
+      ({Case_ID, UserTimestamp, Vital_Group, Vital_Name, Vital_Value, Drug_Group, Drug_Name, Drug_Dosage, Fluid_Group, Fluid_Name, Fluid_Dosage}) =>
+        ({Case_ID: removeSpaces(Case_ID), date: new Date(UserTimestamp), Vital_Group: removeSpaces(Vital_Group), Vital_Name: removeSpaces(Vital_Name), Vital_Value: +Vital_Value, Drug_Group: removeSpaces(Drug_Group), Drug_Name: removeSpaces(Drug_Name), Drug_Dosage: +Drug_Dosage, Fluid_Group: removeSpaces(Fluid_Group), Fluid_Name: removeSpaces(Fluid_Name), Fluid_Dosage: +Fluid_Dosage});
+      
+      const curveSelectChanged = () => {
+        // const newCurveFunction = getSelectedCurveFunction();
+        if (chart) {
+          redrawCharts();
+          // chart.lineCurve(newCurveFunction);
+        }
+      }
+
+      const heightChanged = () => {
+        // const chartHeight = document.getElementById('heightRange').value;
+        if (chart) {
+          redrawCharts();
+          // chart.height(chartHeight);
+        }
+      }
+
+      const elapsedTimeRangeChanged = () => {
+        // const elaspedRange = document.getElementById('elaspedMinutesRange').value;
+        if (chart) {
+          redrawCharts();
+        }
+      }
+
+      const showChangeValueCheckChanged = () => {
+        if (chart) {
+          redrawCharts();
+        }
+      }
+
+      const labelCasesCheckChanged = () => {
+        if (chart) {
+          redrawCharts();
+        }
+      }
+
+      const getSelectedCurveFunction = () => {
+        let select = document.getElementById('curveModeSelect');
+        let selectedCurve = select.options[select.selectedIndex].value;
+
+        if (selectedCurve === 'Linear') {
+          return d3.curveLinear;
+        } else if (selectedCurve === 'MonotoneX') {
+          return d3.curveMonotoneX;
+        } else if (selectedCurve === 'Step') {
+          return d3.curveStep;
+        } else if (selectedCurve === 'Step After') {
+          return d3.curveStepAfter;
+        } else if (selectedCurve === 'Step Before') {
+          return d3.curveStepBefore;
+        }
+        return null;
+      }
+
+      const curveChanged = () => {
+        if (charts) {
+          charts.forEach((chart) => {
+            chart.lineCurve(getSelectedCurveFunction());
+          });
+        }
+      }
+
+      const removeSpaces = (str) => {
+        return str.replace(/\s+/g, '');
+      };
+
+      function fileChanged() {
+        chartData = new Map();
+        drugGroupNames = new Map();
+        vitalGroupNames = new Map();
+
+        const files = document.getElementById('fileInput').files;
+        if (files) {
+          let promises = [];
+          for (let i = 0; i < files.length; i++) {
+            let filePromise = new Promise(resolve => {
+              let reader = new FileReader();
+              reader.readAsText(files[i]);
+              reader.onload = () => resolve(reader.result);
+              reader.onerror = (error) => reject(error);
+            });
+            promises.push(filePromise);
+          }
+
+          Promise.all(promises)
+            .then(fileContents => {
+              for (let fileContent of fileContents) {
+                const fileData = d3.csvParse(fileContent, type);
+                loadData(fileData);
+              }
+              populateDrugSelectComponents();
+              populateVitalSelectComponents();
+            })
+            .catch(error => {
+              console.log(error);
+            });
+        }
+      }
+
+      function loadData(data) {
+        const caseData = d3.nest()
+          .key(d => d.Case_ID)
+          .entries(data);
+
+        caseData.forEach((caseNode) => {
+          const drugData = caseNode.values.filter((d) => {
+            return (d.Drug_Group != 'NULL' && d.Drug_Group.length != 0);
+          });
+
+          const nestedDrugData = d3.nest()
+            .key(d => d.Drug_Group)
+            .key(d => d.Drug_Name)
+            .entries(drugData);
+
+          nestedDrugData.forEach((drugGroupNode) => {
+            if (!drugGroupNames.has(drugGroupNode.key)) {
+              drugGroupNames.set(drugGroupNode.key, new Set());
+            }
+            drugNames = drugGroupNames.get(drugGroupNode.key);
+            drugGroupNode.values.forEach((drugNameNode) => {
+              drugNames.add(drugNameNode.key);
+            });
+          });
+
+          const vitalData = data.filter((d) => {
+            return (d.Vital_Group != 'NULL' && d.Vital_Group.length != 0);
+          });
+
+          const nestedVitalData = d3.nest()
+            .key(d => d.Vital_Group)
+            .key(d => d.Vital_Name)
+            .entries(vitalData);
+
+            nestedVitalData.forEach((vitalGroupNode) => {
+            if (!vitalGroupNames.has(vitalGroupNode.key)) {
+              vitalGroupNames.set(vitalGroupNode.key, new Set());
+            }
+            vitalNames = vitalGroupNames.get(vitalGroupNode.key);
+            vitalGroupNode.values.forEach((vitalNameNode) => {
+              vitalNames.add(vitalNameNode.key);
+            });
+          });
+
+          chartData.set(caseNode.key, {
+            drugData: nestedDrugData,
+            vitalData: nestedVitalData,
+          });
+        });
+      }
+
+      const populateDrugSelectComponents = () => {
+        const groupSelect = document.getElementById('drug-group-select');
+        const nameSelect = document.getElementById('drug-name-select');
+
+        for (index in groupSelect.options) {
+          groupSelect.remove(index);
+        }
+        
+        groupSelect.options[0] = new Option('Select Drug Group', 0);
+
+        const drugGroups = [...drugGroupNames.keys()];
+        // let groups = [];
+        // drugGroupNames.forEach((drugNames, key) => {
+        //   groups.push(key);
+        // });
+        drugGroups.sort(d3.ascending);
+
+        drugGroups.forEach((drugGroup) => {
+          groupSelect.options[groupSelect.options.length] = new Option(drugGroup);
+        });
+
+        groupSelect.value = 0;
+        drugGroupSelectChanged();
+      }
+
+      const drugGroupSelectChanged = () => {
+        const groupSelect = document.getElementById('drug-group-select');
+        const nameSelect = document.getElementById('drug-name-select');
+
+        const selectedGroup = groupSelect.options[groupSelect.selectedIndex].text;
+
+        for (index in nameSelect.options) {
+          nameSelect.remove(index);
+        }
+        // console.log(nameSelect.options);
+        nameSelect.options[0] = new Option('Select Drug Name', 0);
+        nameSelect.value = 0;
+
+        if (selectedGroup != 'Select Drug Group') {
+          const drugNameSet = drugGroupNames.get(selectedGroup);
+          const drugNames = [...drugNameSet];
+          drugNames.sort(d3.ascending);
+          console.log(drugNames);
+          drugNames.forEach((drugName) => {
+            nameSelect.options[nameSelect.options.length] = new Option(drugName, nameSelect.options.length);
+          });
+        }
+
+        removeCharts();
+      }
+
+      const drugNameSelectChanged = () => {
+        redrawCharts();
+      }
+
+      const populateVitalSelectComponents = () => {
+        const groupSelect = document.getElementById('vital-group-select');
+        const nameSelect = document.getElementById('vital-name-select');
+
+        for (index in groupSelect.options) {
+          groupSelect.remove(index);
+        }
+        
+        groupSelect.options[0] = new Option('Select Vital Group', 0);
+        const vitalGroups = [...vitalGroupNames.keys()];
+        vitalGroups.sort(d3.ascending);
+        console.log(vitalGroups);
+        vitalGroups.forEach((vitalGroup) => {
+          groupSelect.options[groupSelect.options.length] = new Option(vitalGroup);
+        });
+        // vitalGroupNames.forEach((vitalNames, key) => {
+        //   groupSelect.options[groupSelect.options.length] = new Option(key, groupSelect.options.length);
+        // });
+
+        groupSelect.value = 0;
+      }
+
+      const vitalGroupSelectChanged = () => {
+        const groupSelect = document.getElementById('vital-group-select');
+        const nameSelect = document.getElementById('vital-name-select');
+
+        const selectedGroup = groupSelect.options[groupSelect.selectedIndex].text;
+        
+        for (index in nameSelect.options) {
+          nameSelect.remove(index);
+        }
+        
+        nameSelect.options[0] = new Option('Select Vital Name', 0);
+        nameSelect.value = 0;
+
+        if (selectedGroup != 'Select Vital Group') {
+          vitalNameSet = vitalGroupNames.get(selectedGroup);
+          const vitalNames = [...vitalNameSet];
+          vitalNames.sort(d3.ascending);
+          vitalNames.forEach((vitalName) => {
+            nameSelect.options[nameSelect.options.length] = new Option(vitalName);
+          });
+        }
+
+        removeCharts();
+      }
+
+      const vitalNameSelectChanged = () => {
+        redrawCharts();
+      }
+
+      const createCharts = () => {
+        const drugGroupSelect = document.getElementById('drug-group-select');
+        if (drugGroupSelect.selectedIndex === 0) return;
+        const selectedDrugGroup = drugGroupSelect.options[drugGroupSelect.selectedIndex].text;
+        
+        const drugNameSelect = document.getElementById('drug-name-select');
+        if (drugNameSelect.selectedIndex === 0) return;
+        const selectedDrugName = drugNameSelect.options[drugNameSelect.selectedIndex].text;
+
+        const vitalGroupSelect = document.getElementById('vital-group-select');
+        if (vitalGroupSelect.selectedIndex === 0) return;
+        const selectedVitalGroup = vitalGroupSelect.options[vitalGroupSelect.selectedIndex].text;
+
+        const vitalNameSelect = document.getElementById('vital-name-select');
+        if (vitalNameSelect.selectedIndex === 0) return;
+        const selectedVitalName = vitalNameSelect.options[vitalNameSelect.selectedIndex].text;
+
+        // console.log(chartData);
+        const doseRidgeData = [];
+        chartData.forEach((caseNode, caseKey) => {
+          // console.log(caseNode);
+          let drugGroup = caseNode.drugData.find((d) => { return d.key === selectedDrugGroup; });
+          // console.log(drugGroup);
+          if (drugGroup) {
+            let drugNameValue = drugGroup.values.find((d) => { return d.key === selectedDrugName; });
+            if (drugNameValue) {
+              let vitalGroup = caseNode.vitalData.find((d) => { return d.key === selectedVitalGroup});
+              if (vitalGroup) {
+                let vitalNameValue = vitalGroup.values.find((d) => { return d.key === selectedVitalName});
+                if (vitalNameValue) {
+                  caseRidgeData = calculateCaseRidgeData(drugNameValue.values, vitalNameValue.values);
+                  for (index in caseRidgeData) {
+                    if (index >= doseRidgeData.length) {
+                      doseRidgeData.push([]);
+                    }
+                    doseRidgeData[index].push(caseRidgeData[index]);
+                  }
+                }
+              }              
+            }
+          }          
+        });
+        console.log(doseRidgeData);
+
+        const chartWidth = document.getElementById('charts').clientWidth;
+        const chartHeight = document.getElementById('heightRange').value;
+        const elapsedTimeRange = document.getElementById('elapsedTimeRange').value;
+
+        const showChangeValueChecked = document.getElementById('showChangeValueCheck').checked;
+        let yValue;
+        if (showChangeValueChecked) {
+          yValue = (d) => d.change;
+        } else {
+          yValue = (d) => d.value;
+        }
+
+        const labelCasesChecked = document.getElementById('labelCasesCheck').checked;
+        let categoryValue;
+        if (labelCasesChecked) {
+          categoryValue = (d) => d.case;
+        }
+
+
+        if (doseRidgeData.length) {
+          d3.select('#placeholder').remove();
+        }
+
+        for (index in doseRidgeData) {
+          // const chartHeight = (margin.top + margin.bottom) + (doseRidgeData[index].length * 14);
+          // const chartHeight = doseRidgeData[index].length * 24;
+
+          // const chart = ridgelineChart()
+          //   .margin(margin)
+          //   .width(chartWidth)
+          //   .height(chartHeight)
+          //   .overlap(ridgeOverlap)
+          //   .titleText("Dosage 1");
+          // d3.select('#charts').call(chart, doseRidgeData[index]);
+
+          const doseNumber = +index + 1;
+          chart = multilineTimeSeriesChart()
+            .margin(margin)
+            .width(chartWidth)
+            .height(chartHeight)
+            .xValue((d) => d.elapsedMillis)
+            // .yValue((d) => d.change)
+            .yValue(yValue)
+            .elapsedRange(elapsedTimeRange/2.)
+            .categoryValue(categoryValue)
+            .lineOpacity(0.75)
+            .lineCurve(d3.curveMonotoneX)
+            .lineCurve(getSelectedCurveFunction())
+            .zeroBasedYAxis(false)
+            .xAxisTitle('Elapsed Time (min.)')
+            .yAxisTitle(`${selectedVitalName} Value Change`)
+            .titleText(`${selectedDrugName}:${selectedVitalName} Dose ${doseNumber}`);
+        
+          d3.select('#charts').call(chart, doseRidgeData[index]);
+        }
+      }
+
+      const calculateCaseRidgeData = (dosages, vitals) => {
+        // console.log(dosages);
+        // console.log(vitals);
+        ridgeData = [];
+        dosages.forEach((dose) => {
+          doseVitals = [];
+          let lastVitalValue;
+          vitals.forEach((vital) => {
+            let valueChange;
+            if (!lastVitalValue) {
+              valueChange = 0;
+            } else {
+              valueChange = vital.Vital_Value - lastVitalValue;
+            }
+            lastVitalValue = vital.Vital_Value;
+            doseVitals.push({
+              case: vital.Case_ID,
+              date: vital.date,
+              elapsedMillis: (vital.date.getTime() - dose.date.getTime()) / 60000.,
+              value: vital.Vital_Value,
+              change: valueChange,
+            });
+          });
+          ridgeData.push({
+            case: dose.Case_ID,
+            dose: dose,
+            values: doseVitals,
+          });
+        });
+        return ridgeData;
+      }
+
+      const removeCharts = () => {
+        // d3.select('#placeholder').remove();
+        d3.select('#charts').selectAll("*").remove();
+      }
+
+      const redrawCharts = () => {
+        removeCharts();
+        createCharts();
+      }
+    </script>
+  </body>
+</html>
