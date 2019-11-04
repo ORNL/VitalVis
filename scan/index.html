@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+  <head>
+    <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
+    
+
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body{
+        font: 12px sans-serif;
+        margin: 4px 20px 0px 20px;
+        background: whitesmoke;
+        /*margin: 0;*/
+      }
+
+      .touchpad-wrapper canvas {
+        /* width: 100%;
+        height: 100%; */
+        position: absolute;
+        top: 0px;
+        padding: 0 4px;
+      }
+
+      #touchpad {
+        background-color: lightsteelblue;
+      }
+
+      #result {
+        background-color: lightseagreen;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        padding: 0 4px;
+        justify-content: center;
+      }
+
+      .column {
+        flex: 30%;
+        max-width: 30%;
+        padding: 0 4px;
+        margin-left: 4px;
+        margin-right: 4px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <center><h2>Time Search by Example Test</h2></center>
+    
+    <input type="file" id="fileInput" onchange="loadFile()"><br/>
+    <label>Selected Vital Group:</label>
+    <select id="vital-group-select" onChange="vitalGroupSelected()"></select><br/>
+
+      <label>Selected Vital Name:</label>
+      <select id="vital-name-select" onChange="vitalNameSelected()"></select><br/>
+
+    <div id="eventchart"></div>
+    <div id="timeserieschart"></div>
+
+    <hr>
+    <center><h3>Dynamic Time Warping Scan Results</h3>
+      <h4> (best matching segments listed first)</h4></center>
+
+    <div id="searchcharts"></div>
+
+    <script>
+      const margin = {top: 20, right: 30, bottom: 40, left: 100};
+      const file = 'data/1023217.csv';
+      // let timeseriesData;
+      let eventData;
+      let dateExtent;
+      let timeseriesChart;
+      let chartVitalData;
+      let vitalGroupNameMap;
+
+      const rangeSelected = () => {
+        console.log("a range has been selected in the time series plot");
+        let selectedData = timeseriesChart.getSelectedRangeData();
+        console.log(selectedData);
+
+        const scanResults = scanTimeseries(selectedData, chartVitalData, d => d.Vital_Value);
+
+        if (scanResults) {
+          // add scan results charts
+          scanResults.sort(function (a, b) {
+            return a.dtwDistance - b.dtwDistance;
+            // return (a.dtw.getDistance() / a.dtw.getPath().length) - (b.dtw.getDistance() / b.dtw.getPath().length);
+          });
+          createScanResultCharts(scanResults);
+        }
+      };
+
+      const createScanResultCharts = (results) => { 
+        // remove previous charts
+        d3.select('#searchcharts').selectAll("*").remove();
+
+        results.forEach((result) => {
+          let chartWidth = document.getElementById('searchcharts').clientWidth;
+          let titleText = `DTW Distance: ${result.dtwDistance}`;
+          let resultChart = timeseriesLineChart()
+            .margin(margin)
+            .titleText(titleText)
+            .width(chartWidth)
+            .height(200)
+            .dateValue((d) => d.date)
+            .curveFunction(d3.curveLinear)
+            .yValue((d) => d.Vital_Value);
+          d3.select('#searchcharts').call(resultChart, result.series);
+        });
+      };
+
+      const createEventChart = () => {
+        let chartWidth = document.getElementById('eventchart').clientWidth;
+
+        let eventChart = timeEventChart()
+          .margin(margin)
+          .dateExtent(dateExtent)
+          .width(chartWidth)
+          .height(240)
+          .dateValue((d) => d.date)
+          .zoomWithWheel(false)
+          .eventCategory((d) => d.Drug_Group)
+          .eventSubCategory((d) => d.Drug_Name);
+        d3.select('#eventchart').call(eventChart, eventData);
+      }
+
+      const createTimeseriesChart = () => {
+        d3.select('#timeserieschart').selectAll("*").remove();
+
+        const vitalGroupSelect = document.getElementById('vital-group-select');
+        if (vitalGroupSelect.selectedIndex === 0) return;
+        const selectedVitalGroup = vitalGroupSelect.options[vitalGroupSelect.selectedIndex].text;
+
+        const vitalNameSelect = document.getElementById('vital-name-select');
+        if (vitalNameSelect.selectedIndex === 0) return;
+        const selectedVitalName = vitalNameSelect.options[vitalNameSelect.selectedIndex].text;
+
+        chartVitalData = vitalData.filter((d) => {
+          return (d.Vital_Group == selectedVitalGroup && d.Vital_Name == selectedVitalName);
+        });
+
+        const chartWidth = document.getElementById('timeserieschart').clientWidth;
+
+        timeseriesChart = timeseriesLineChart()
+          .margin(margin)
+          .dateExtent(dateExtent)
+          .width(chartWidth)
+          .height(200)
+          .rangeSelectionHandler(rangeSelected)
+          .zoomWithWheel(false)
+          .dateValue((d) => d.date)
+          .curveFunction(d3.curveLinear)
+          .yValue((d) => d.Vital_Value);
+        d3.select('#timeserieschart').call(timeseriesChart, chartVitalData);
+      }
+
+      // const createCharts = () => {
+      //   dateExtent = [];
+      //   let eventDateExtent = d3.extent(eventData, d => d.date);
+      //   let timeseriesDateExtent = d3.extent(timeseriesData, d => d.date);
+      //   dateExtent[0] = eventDateExtent[0] < timeseriesDateExtent[0] ? eventDateExtent[0] : timeseriesDateExtent[0];
+      //   dateExtent[1] = eventDateExtent[1] > timeseriesDateExtent[1] ? eventDateExtent[1] : timeseriesDateExtent[1];
+        
+      //   let chartWidth = document.getElementById('timeserieschart').clientWidth;
+
+      //   let eventChart = timeEventChart()
+      //     .margin(margin)
+      //     .dateExtent(dateExtent)
+      //     .width(chartWidth)
+      //     .height(240)
+      //     .dateValue((d) => d.date)
+      //     .zoomWithWheel(false)
+      //     .eventCategory((d) => d.group)
+      //     .eventSubCategory((d) => d.name);
+      //   d3.select('#eventchart').call(eventChart, eventData);
+
+      //   timeseriesChart = timeseriesLineChart()
+      //     .margin(margin)
+      //     .dateExtent(dateExtent)
+      //     .width(chartWidth)
+      //     .height(200)
+      //     .rangeSelectionHandler(rangeSelected)
+      //     .zoomWithWheel(false)
+      //     .dateValue((d) => d.date)
+      //     .curveFunction(d3.curveLinear)
+      //     .yValue((d) => d.Vital_Value);
+      //   d3.select('#timeserieschart').call(timeseriesChart, timeseriesData);
+      // };
+      
+      const removeSpaces = (str) => {
+        return str.replace(/\s+/g, '');
+      };
+
+      const type =
+      ({Case_ID, UserTimestamp, Vital_Group, Vital_Name, Vital_Value, Drug_Group, Drug_Name, Drug_Dosage, Fluid_Group, Fluid_Name, Fluid_Dosage}) =>
+        ({Case_ID: removeSpaces(Case_ID), date: new Date(UserTimestamp), Vital_Group: removeSpaces(Vital_Group), Vital_Name: removeSpaces(Vital_Name), Vital_Value: +Vital_Value, Drug_Group: removeSpaces(Drug_Group), Drug_Name: removeSpaces(Drug_Name), Drug_Dosage: +Drug_Dosage, Fluid_Group: removeSpaces(Fluid_Group), Fluid_Name: removeSpaces(Fluid_Name), Fluid_Dosage: +Fluid_Dosage});
+            
+      const loadFile = () => {
+        const files = document.getElementById('fileInput').files;
+        if (files[0]) {
+          const reader = new FileReader();
+          reader.onload = (f) => {
+            const fileData = d3.csvParse(reader.result, type);
+            loadData(fileData);
+          }
+          reader.readAsText(files[0]);
+        }
+      };
+
+      const loadData = (data) => {
+        removeAllCharts();
+
+        dateExtent = d3.extent(data, d => d.date);
+
+        eventData = data.filter((d) => {
+          return (d.Drug_Group != 'NULL' && d.Drug_Group.length != 0);
+        });
+
+        vitalData = data.filter((d) => {
+          return (d.Vital_Group != 'NULL' && d.Vital_Group.length != 0);
+        });
+        
+        vitalGroupNameMap = new Map();
+
+        const nestedVitalData = d3.nest()
+            .key(d => d.Vital_Group)
+            .key(d => d.Vital_Name)
+            .entries(vitalData);
+
+        nestedVitalData.forEach((vitalGroupNode) => {
+          if (!vitalGroupNameMap.has(vitalGroupNode.key)) {
+            vitalGroupNameMap.set(vitalGroupNode.key, new Set());
+          }
+          vitalNameSet = vitalGroupNameMap.get(vitalGroupNode.key);
+          vitalGroupNode.values.forEach((vitalNameNode) => {
+            vitalNameSet.add(vitalNameNode.key);
+          });
+        });       
+        
+        populateVitalSelectComponents();
+
+        createEventChart();
+      };
+
+      const populateVitalSelectComponents = () => {
+        const groupSelect = document.getElementById('vital-group-select');
+        const nameSelect = document.getElementById('vital-name-select');
+
+        for (index in groupSelect.options) {
+          groupSelect.remove(index);
+        }
+        for (index in nameSelect.options) {
+          nameSelect.remove(index);
+        }
+        
+        groupSelect.options[0] = new Option('Select Vital Group', 0);
+        groupSelect.value = 0;
+
+        const vitalGroups = [...vitalGroupNameMap.keys()];
+        vitalGroups.sort(d3.ascending);
+        vitalGroups.forEach((vitalGroup) => {
+          groupSelect.options[groupSelect.options.length] = new Option(vitalGroup);
+        });
+
+        removeAllCharts();  
+      };
+
+      const vitalGroupSelected = () => {
+        d3.select('#searchcharts').selectAll("*").remove();
+        d3.select('#timeserieschart').selectAll("*").remove();
+
+        const groupSelect = document.getElementById('vital-group-select');
+        const nameSelect = document.getElementById('vital-name-select');
+
+        const selectedGroup = groupSelect.options[groupSelect.selectedIndex].text;
+        
+        for (index in nameSelect.options) {
+          nameSelect.remove(index);
+        }
+        
+        nameSelect.options[0] = new Option('Select Vital Name', 0);
+        nameSelect.value = 0;
+
+        if (selectedGroup != 'Select Vital Group') {
+          vitalNameSet = vitalGroupNameMap.get(selectedGroup);
+          const vitalNames = [...vitalNameSet];
+          vitalNames.sort(d3.ascending);
+          vitalNames.forEach((vitalName) => {
+            nameSelect.options[nameSelect.options.length] = new Option(vitalName);
+          });
+        }
+      }
+
+      const vitalNameSelected = () => {
+        d3.select('#searchcharts').selectAll("*").remove();
+        createTimeseriesChart();
+      }
+
+      const removeAllCharts = () => {
+        d3.select('#eventchart').selectAll("*").remove();
+        d3.select('#timeserieschart').selectAll("*").remove();
+        d3.select('#searchcharts').selectAll("*").remove(); 
+      }
+
+
+      // d3.csv(file, type)
+      //   .then(function (data) {
+      //     drugData = data.filter((d) => {
+      //       return (d.Drug_Group != 'NULL' && d.Drug_Group.length != 0);
+      //     });
+
+      //     eventData = [];
+      //     drugData.forEach(function (d) {
+      //       eventData.push({
+      //         date: d.date,
+      //         group: d.Drug_Group,
+      //         name: d.Drug_Name,
+      //         dosage: d.Drug_Dosage,
+      //       });
+      //     });
+
+      //     vitalData = data.filter((d) => {
+      //       return (d.Vital_Name === 'Pulse');
+      //     });
+      //     // vitalData = vitalData.slice(0, 30);
+          
+      //     timeseriesData = [];
+      //     vitalData.forEach(function(vital) {
+      //       timeseriesData.push({
+      //         date: vital.date,
+      //         value: vital.Vital_Value,
+      //       });
+      //     });
+
+      //     createCharts();
+      //   })
+      //   .catch(function(error) {
+      //     console.log(error);
+      //   });
+
+    </script>
+
+    <script type="text/javascript" src="./lib/dynamic-time-warping-1.0.0/src/dynamic-time-warping.js"></script>
+    <script type="text/javascript" src="./lib/timeSearch.js"></script>
+    <script type="text/javascript" src="./lib/timeseriesLineChart.js"></script>
+    <script type="text/javascript" src="./lib/timeEventChart.js"></script>
+  </body>
+</html>
