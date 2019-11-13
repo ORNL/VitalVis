@@ -14,12 +14,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
 
     <!-- <link href="https://fonts.googleapis.com/css?family=Fredoka+One&display=swap" rel="stylesheet"> -->
-    <link href="https://fonts.googleapis.com/css?family=Black+Ops+One&display=swap" rel="stylesheet">
+    <!-- <link href="https://fonts.googleapis.com/css?family=Black+Ops+One&display=swap" rel="stylesheet"> -->
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans|Varela+Round&display=swap" rel="stylesheet">
 
     <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
     <script type="text/javascript" src="./js/multilineTimeSeriesChart.js"></script>
 
     <style>
+      body {
+        font-family: 'Open Sans', sans-serif;
+      }
+      
       main > .container {
         padding: 60px 15px 0;
       }
@@ -29,7 +34,8 @@
         padding-bottom: .55rem;
         font-size: 1.4rem;
         color: #FF4500;
-        font-family: 'Black Ops One', cursive;
+        font-family: 'Varela Round', sans-serif;
+        /* font-family: 'Black Ops One', cursive; */
         float: none;
         /* background-color: rgba(0, 0, 0, .25); */
         /* box-shadow: inset -1px 0 0 rgba(0, 0, 0, .25); */
@@ -177,7 +183,7 @@
 
         <div class="position-relative overflow-hidden p-3 p-md-5 m-md-3 text-center bg-light" id="placeholder">
           <div class="col-md-8 p-lg-6 mx-auto my-6">
-            <h1 class="display-4 font-weight-normal" style="font-family: 'Black Ops One', cursive;">Overlay Chart</h1>
+            <h1 class="display-4 font-weight-normal" style="font-family: 'Varela Round', sans-serif;">Overlay Chart</h1>
             <p class="lead font-weight-normal">Use the "Open CSV File(s)" button above to read local files into this web page for analysis. The files must be stored in the ORNL CSV format with column headers. Once read, select the drug group, drug name, vital group, and vital name to show plots overlaying each case from the data. The "Redraw" button can be used to redraw the charts if the window is resized. Chart settings can be modified using the "Settings" dialog.</p>
           </div>
           <a class="btn btn-secondary" href="video/overlay-demo.mov" target="blank">Demonstration Video</a>
