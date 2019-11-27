@@ -20,6 +20,7 @@
     <script type="text/javascript" src="https://d3js.org/d3.v5.min.js"></script>
     <script type="text/javascript" src="./js/timeEventChart.js"></script>
     <script type="text/javascript" src="./js/timeseriesLineChart.js"></script>
+    <script type="text/javascript" src="./js/readFiles.js"></script>
 
     <style>
       body {
@@ -93,7 +94,7 @@
                   <div class="form-row">
                     <div class="form-group col-md-6">
                       <div class="form-check">
-                        <input class="form-check-input" type="checkbox" value="" id="showPointsCheck" onchange="showPointsCheckChanged()" checked>
+                        <input class="form-check-input" type="checkbox" value="" id="showPointsCheck" onchange="showPointsCheckChanged()">
                         <label class="form-check-label" for="showPointsCheck">
                           Show Data Points
                         </label>
@@ -189,7 +190,7 @@
 
     <script>
       const margin = {top: 20, right: 30, bottom: 40, left: 100};
-      let fileDataMap = new Map();
+      let fileDataMap;
       let dateExtent;
       let eventsChartData;
       let vitalsChartData;
@@ -198,46 +199,68 @@
       const loadFiles = () => {
         const files = document.getElementById('fileInput').files;
         if (files) {
-          $('#fileDataSelect').find('option').remove();
-          removeCharts();
-          fileDataMap = new Map();
-          for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            const reader = new FileReader();
-            reader.onload = (f) => {
-              let fileData;
-              // console.log(file);
-              if (file.name.endsWith(".json")) {
-                let data = JSON.parse(reader.result);
-                fileData = processJSONData(data);
-              } else if (file.name.endsWith(".csv")) {
-                const data = d3.csvParse(reader.result, type);
-                fileData = processCSVData(data);
-              }
-              console.log(fileData);
-              // const fileData = d3.csvParse(reader.result, type);
-              fileDataMap.set(file.name, fileData);
-              // console.log($(".selected-file-data"));
+          readFiles(files, (fileData) => {
+            // console.log('file read complete');
+            // console.log(fileData);
+
+            $('#fileDataSelect').find('option').remove();
+            removeCharts();
+
+            fileDataMap = new Map();
+            fileData.forEach(data => {
+              fileDataMap.set(data.caseid, data);
+              // console.log(fileDataMap);
               let fileOption = document.createElement('option');
-              fileOption.text = file.name;
+              fileOption.text = data.caseid;
               document.getElementById('fileDataSelect').append(fileOption);
-              if (fileDataMap.size == 1) {
+              if (fileDataMap.size === 1) {
                 fileDataSelectChanged();
               }
-            }
-            reader.readAsText(file);
-          }
+            });
+            // console.log(fileDataMap);
+            // fileDataSelectChanged();
+          });
         }
+        // const files = document.getElementById('fileInput').files;
+        // if (files) {
+        //   $('#fileDataSelect').find('option').remove();
+        //   removeCharts();
+        //   fileDataMap = new Map();
+        //   for (let i = 0; i < files.length; i++) {
+        //     const file = files[i];
+        //     const reader = new FileReader();
+        //     reader.onload = (f) => {
+        //       let fileData;
+        //       // console.log(file);
+        //       if (file.name.endsWith(".json")) {
+        //         let data = JSON.parse(reader.result);
+        //         fileData = processJSONData(data);
+        //       } else if (file.name.endsWith(".csv")) {
+        //         const data = d3.csvParse(reader.result, type);
+        //         fileData = processCSVData(data);
+        //       }
+        //       console.log(fileData);
+        //       // const fileData = d3.csvParse(reader.result, type);
+        //       fileDataMap.set(file.name, fileData);
+        //       // console.log($(".selected-file-data"));
+        //       let fileOption = document.createElement('option');
+        //       fileOption.text = file.name;
+        //       document.getElementById('fileDataSelect').append(fileOption);
+        //       if (fileDataMap.size == 1) {
+        //         fileDataSelectChanged();
+        //       }
+        //     }
+        //     reader.readAsText(file);
+        //   }
+        // }
       };
-
-      const type =
-      ({UserTimestamp, Vital_Group, Vital_Name, Vital_Value, Vital_Unit, Drug_Group, Drug_Name, Drug_Unit, Drug_Dosage, Fluid_Group, Fluid_Name, Fluid_Dosage, Fluid_Unit}) =>
-        ({date: new Date(UserTimestamp), Vital_Group: Vital_Group, Vital_Name: Vital_Name, Vital_Value: +Vital_Value, Vital_Unit: Vital_Unit, Drug_Group: Drug_Group, Drug_Name: Drug_Name, Drug_Dosage: +Drug_Dosage, Drug_Unit: Drug_Unit, Fluid_Group: Fluid_Group, Fluid_Name: Fluid_Name, Fluid_Dosage: +Fluid_Dosage, Fluid_Unit: Fluid_Unit});
 
       const fileDataSelectChanged = () => {
         let selectedFile = $('#fileDataSelect').val();
-        console.log(selectedFile);
-        let fileData = fileDataMap.get(selectedFile);
+        // console.log(selectedFile);
+        // console.log(fileDataMap);
+        let fileData = fileDataMap.get(+selectedFile);
+        // console.log(fileData);
         loadFileData(fileData);
       }
 
@@ -250,107 +273,108 @@
       };
 
 
-      const processJSONData = (data) => {
-        const fileDateExtent = [null, null];
-        data.drugs.forEach(d => {
-          d.time = new Date(d.time);
-          if (!fileDateExtent[0] || d.time < fileDateExtent[0]) {
-            fileDateExtent[0] = d.time;
-          }
-          if (!fileDateExtent[1] || d.time > fileDateExtent[1]) {
-            fileDateExtent[1] = d.time;
-          }
-        });
+      // const processJSONData = (data) => {
+      //   const fileDateExtent = [null, null];
+      //   data.drugs.forEach(d => {
+      //     d.time = new Date(d.time);
+      //     if (!fileDateExtent[0] || d.time < fileDateExtent[0]) {
+      //       fileDateExtent[0] = d.time;
+      //     }
+      //     if (!fileDateExtent[1] || d.time > fileDateExtent[1]) {
+      //       fileDateExtent[1] = d.time;
+      //     }
+      //   });
 
-        data.fluids.forEach(d => {
-          d.time = new Date(d.time);
-          if (!fileDateExtent[0] || d.time < fileDateExtent[0]) {
-            fileDateExtent[0] = d.time;
-          }
-          if (!fileDateExtent[1] || d.time > fileDateExtent[1]) {
-            fileDateExtent[1] = d.time;
-          }
-        });
+      //   data.fluids.forEach(d => {
+      //     d.time = new Date(d.time);
+      //     if (!fileDateExtent[0] || d.time < fileDateExtent[0]) {
+      //       fileDateExtent[0] = d.time;
+      //     }
+      //     if (!fileDateExtent[1] || d.time > fileDateExtent[1]) {
+      //       fileDateExtent[1] = d.time;
+      //     }
+      //   });
 
-        data.vitals.forEach(d => {
-          d.time = new Date(d.time);
-          if (!fileDateExtent[0] || d.time < fileDateExtent[0]) {
-            fileDateExtent[0] = d.time;
-          }
-          if (!fileDateExtent[1] || d.time > fileDateExtent[1]) {
-            fileDateExtent[1] = d.time;
-          }
-        });
+      //   data.vitals.forEach(d => {
+      //     d.time = new Date(d.time);
+      //     if (!fileDateExtent[0] || d.time < fileDateExtent[0]) {
+      //       fileDateExtent[0] = d.time;
+      //     }
+      //     if (!fileDateExtent[1] || d.time > fileDateExtent[1]) {
+      //       fileDateExtent[1] = d.time;
+      //     }
+      //   });
 
-        data.dateExtent = fileDateExtent;
-        return data;
-      };
+      //   data.dateExtent = fileDateExtent;
+      //   return data;
+      // };
 
 
-      const processCSVData = (data) => {
-        const dateExtent = d3.extent(data, (d) => { return d.date; });
+      // const processCSVData = (data) => {
+      //   const dateExtent = d3.extent(data, (d) => { return d.date; });
         
-        // get fluid events
-        let fluidData = data.filter((d) => {
-          return (d.Fluid_Group != 'NULL' && d.Fluid_Group.length != 0);
-        })
-        fluidData = fluidData.map((d) => {
-          return {
-            group: d.Fluid_Group,
-            name: d.Fluid_Name,
-            time: d.date,
-            unit: d.Fluid_Unit,
-            value: d.Fluid_Dosage,
-          };
-        });
-        fluidData.sort((a, b) => {
-          return a.time - b.time;
-        });
+      //   // get fluid events
+      //   let fluidData = data.filter((d) => {
+      //     return (d.Fluid_Group != 'NULL' && d.Fluid_Group.length != 0);
+      //   })
+      //   fluidData = fluidData.map((d) => {
+      //     return {
+      //       group: d.Fluid_Group,
+      //       name: d.Fluid_Name,
+      //       time: d.date,
+      //       unit: d.Fluid_Unit,
+      //       value: d.Fluid_Dosage,
+      //     };
+      //   });
+      //   fluidData.sort((a, b) => {
+      //     return a.time - b.time;
+      //   });
 
-        // get drug events
-        let drugData = data.filter((d) => {
-          return (d.Drug_Group != 'NULL' && d.Drug_Group.length != 0);
-        })
-        drugData = drugData.map(d => {
-          return {
-            group: d.Drug_Group,
-            name: d.Drug_Name,
-            time: d.date,
-            unit: d.Drug_Unit,
-            value: d.Drug_Dosage,
-          }
-        });
-        drugData.sort((a, b) => {
-          return a.time - b.time;
-        });
+      //   // get drug events
+      //   let drugData = data.filter((d) => {
+      //     return (d.Drug_Group != 'NULL' && d.Drug_Group.length != 0);
+      //   })
+      //   drugData = drugData.map(d => {
+      //     return {
+      //       group: d.Drug_Group,
+      //       name: d.Drug_Name,
+      //       time: d.date,
+      //       unit: d.Drug_Unit,
+      //       value: d.Drug_Dosage,
+      //     }
+      //   });
+      //   drugData.sort((a, b) => {
+      //     return a.time - b.time;
+      //   });
 
-        // get vital events
-        let vitalData = data.filter((d) => {
-          return (d.Vital_Group != 'NULL' && d.Vital_Group.length != 0);
-        });
-        vitalData = vitalData.map(d => {
-          return {
-            group: d.Vital_Group,
-            name: d.Vital_Name,
-            time: d.date,
-            unit: d.Vital_Unit,
-            value: d.Vital_Value,
-          }
-        });
-        vitalData.sort((a, b) => {
-          return a.time - b.time;
-        });
+      //   // get vital events
+      //   let vitalData = data.filter((d) => {
+      //     return (d.Vital_Group != 'NULL' && d.Vital_Group.length != 0);
+      //   });
+      //   vitalData = vitalData.map(d => {
+      //     return {
+      //       group: d.Vital_Group,
+      //       name: d.Vital_Name,
+      //       time: d.date,
+      //       unit: d.Vital_Unit,
+      //       value: d.Vital_Value,
+      //     }
+      //   });
+      //   vitalData.sort((a, b) => {
+      //     return a.time - b.time;
+      //   });
 
-        return {
-          dateExtent: dateExtent,
-          drugs: drugData,
-          fluids: fluidData,
-          vitals: vitalData,
-        };
-      };
+      //   return {
+      //     dateExtent: dateExtent,
+      //     drugs: drugData,
+      //     fluids: fluidData,
+      //     vitals: vitalData,
+      //   };
+      // };
 
 
       const loadFileData = (fileData) => {
+        // console.log(fileData);
         dateExtent = fileData.dateExtent;
 
         eventsChartData = [];
@@ -376,18 +400,20 @@
                               .key(d => d.name)
                               .entries(fileData.vitals);
         
-        console.log(nestedVitals);
+        // console.log(nestedVitals);
 
-        let NIBPMergedValues = [];
+        // let NIBPMergedValues = [];
 
         nestedVitals.forEach(groupNode => {
           groupNode.values.forEach(nameNode => {
-            let newValues = nameNode.values.map((d) => {
+            // console.log(nameNode);
+            let newValues = nameNode.values[0].values.map((d) => {
               return {
                 time: d.time,
                 value: d.value,
               };
             });
+            // console.log(newValues);
             vitalsChartData.push({
               name: `${removeSpaces(groupNode.key)}_${removeSpaces(nameNode.key)}`,
               data: newValues,
@@ -395,6 +421,12 @@
             });
           });
         });
+
+        vitalsChartData.sort((a, b) => {
+          return (a.name > b.name) ? 1 : -1;
+        });
+
+        // console.log(vitalsChartData);
 
         removeCharts();
         createCharts();        
@@ -581,7 +613,7 @@
         let divWidth = document.getElementById('charts').clientWidth;
         const chartHeight = document.getElementById('heightRange').value;
 
-        eventsChartData.forEach( (chartData) => {
+        eventsChartData.forEach((chartData) => {
           const chartDivID = createChartDiv(chartData, eventsChartData);
           let eventChartHeight;
           if (chartData.name === 'Fluids') {
