@@ -31,6 +31,10 @@
         padding: 60px 15px 0;
       }
 
+      h6 {
+        font-size: 10;
+      }
+
       .navbar-brand {
         padding-top: .55rem;
         padding-bottom: .55rem;
@@ -189,7 +193,7 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
 
     <script>
-      const margin = {top: 20, right: 30, bottom: 40, left: 100};
+      const margin = {top: 10, right: 20, bottom: 40, left: 100};
       let fileDataMap;
       let dateExtent;
       let eventsChartData;
@@ -592,15 +596,15 @@
         const columnNameText = document.createTextNode(chartName);
         heading.append(closeIcon);
         heading.append(columnNameText);
-        // bodyDiv.append(heading);
+        bodyDiv.append(heading);
         chartDiv.append(bodyDiv);
         document.getElementById('charts').append(chartDiv);
 
         $(`#${chartName}CloseIcon`).click(function () {
-          console.log(chartDataList);
+          // console.log(chartDataList);
           const index = chartDataList.indexOf(chartData);
           chartDataList.splice(index, 1);
-          console.log(chartDataList);
+          // console.log(chartDataList);
           d3.select(`#${chartName}ChartDiv`).remove();
         });
 
@@ -623,7 +627,7 @@
           }
 
           chartData.chart = timeEventChart()
-            .titleText(chartData.name)
+            // .titleText(chartData.name)
             .margin(margin)
             .dateExtent(dateExtent)
             .width(divWidth)
@@ -658,7 +662,7 @@
 
           if (chartData.name === 'BloodPressure') {
             chartData.chart = timeseriesLineChart()
-              .titleText(chartData.name)
+              // .titleText(chartData.name)
               .margin(margin)
               .dateExtent(dateExtent)
               .width(divWidth)
@@ -687,7 +691,7 @@
               .lowValue((d) => d.NIBPDias);
           } else {
             chartData.chart = timeseriesLineChart()
-              .titleText(chartData.name)
+              // .titleText(chartData.name)
               .margin(margin)
               .dateExtent(dateExtent)
               .width(divWidth)
