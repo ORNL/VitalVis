@@ -17,6 +17,7 @@ const readFiles = (files, fileReadComplete) => {
         fileContents.forEach(fileContent => {
             try {
                 const fileData = JSON.parse(fileContent);
+                // console.log(fileData);
                 processJSONData(fileData);
                 allFileData.push(fileData);
             } catch (error) {
@@ -75,28 +76,30 @@ const processJSONData = data => {
   data.fluids = newFluidsArray;
 
   let newVitalsArray = [];
-  Object.keys(data.vitals).forEach(vitalKey => {
-    data.vitals[vitalKey].values.forEach(d => {
-      d.time = new Date(d.time);
-      if (!fileDateExtent[0] || d.time < fileDateExtent[0]) {
-          fileDateExtent[0] = d.time;
-      }
-      if (!fileDateExtent[1] || d.time > fileDateExtent[1]) {
-          fileDateExtent[1] = d.time;
-      }
+  Object.keys(data.vitals).forEach(vitalGroupKey => {
+    Object.keys(data.vitals[vitalGroupKey]).forEach(vitalNameKey => {
+      data.vitals[vitalGroupKey][vitalNameKey].values.forEach(d => {
+        d.time = new Date(d.time);
+        if (!fileDateExtent[0] || d.time < fileDateExtent[0]) {
+            fileDateExtent[0] = d.time;
+        }
+        if (!fileDateExtent[1] || d.time > fileDateExtent[1]) {
+            fileDateExtent[1] = d.time;
+        }
+      });
+      let sortedValues = data.vitals[vitalGroupKey][vitalNameKey].values.map(d => d.value).sort(d3.ascending);
+      data.vitals[vitalGroupKey][vitalNameKey].mean = d3.mean(sortedValues);
+      data.vitals[vitalGroupKey][vitalNameKey].stdev = d3.deviation(sortedValues);
+      data.vitals[vitalGroupKey][vitalNameKey].median = d3.median(sortedValues);
+      data.vitals[vitalGroupKey][vitalNameKey].q1 = d3.quantile(sortedValues, 0.25);
+      data.vitals[vitalGroupKey][vitalNameKey].q3 = d3.quantile(sortedValues, 0.75);
+      data.vitals[vitalGroupKey][vitalNameKey].iqr = data.vitals[vitalGroupKey][vitalNameKey].q3 - data.vitals[vitalGroupKey][vitalNameKey].q1;
+      data.vitals[vitalGroupKey][vitalNameKey].min = sortedValues[0];
+      data.vitals[vitalGroupKey][vitalNameKey].max = sortedValues[sortedValues.length - 1];
+      data.vitals[vitalGroupKey][vitalNameKey].r0 = Math.max(data.vitals[vitalGroupKey][vitalNameKey].min, data.vitals[vitalGroupKey][vitalNameKey].q1 - data.vitals[vitalGroupKey][vitalNameKey].iqr * 1.5);
+      data.vitals[vitalGroupKey][vitalNameKey].r1 = Math.min(data.vitals[vitalGroupKey][vitalNameKey].max, data.vitals[vitalGroupKey][vitalNameKey].q3 + data.vitals[vitalGroupKey][vitalNameKey].iqr * 1.5);
+      newVitalsArray.push(data.vitals[vitalGroupKey][vitalNameKey]);
     });
-    let sortedValues = data.vitals[vitalKey].values.map(d => d.value).sort(d3.ascending);
-    data.vitals[vitalKey].mean = d3.mean(sortedValues);
-    data.vitals[vitalKey].stdev = d3.deviation(sortedValues);
-    data.vitals[vitalKey].median = d3.median(sortedValues);
-    data.vitals[vitalKey].q1 = d3.quantile(sortedValues, 0.25);
-    data.vitals[vitalKey].q3 = d3.quantile(sortedValues, 0.75);
-    data.vitals[vitalKey].iqr = data.vitals[vitalKey].q3 - data.vitals[vitalKey].q1;
-    data.vitals[vitalKey].min = sortedValues[0];
-    data.vitals[vitalKey].max = sortedValues[sortedValues.length - 1];
-    data.vitals[vitalKey].r0 = Math.max(data.vitals[vitalKey].min, data.vitals[vitalKey].q1 - data.vitals[vitalKey].iqr * 1.5);
-    data.vitals[vitalKey].r1 = Math.min(data.vitals[vitalKey].max, data.vitals[vitalKey].q3 + data.vitals[vitalKey].iqr * 1.5);
-    newVitalsArray.push(data.vitals[vitalKey]);
   });
   data.vitals = newVitalsArray;
 
