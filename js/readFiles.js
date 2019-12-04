@@ -86,19 +86,28 @@ const processJSONData = data => {
         if (!fileDateExtent[1] || d.time > fileDateExtent[1]) {
             fileDateExtent[1] = d.time;
         }
+        d.value = +d.value;
       });
-      let sortedValues = data.vitals[vitalGroupKey][vitalNameKey].values.map(d => d.value).sort(d3.ascending);
-      data.vitals[vitalGroupKey][vitalNameKey].mean = d3.mean(sortedValues);
-      data.vitals[vitalGroupKey][vitalNameKey].stdev = d3.deviation(sortedValues);
-      data.vitals[vitalGroupKey][vitalNameKey].median = d3.median(sortedValues);
-      data.vitals[vitalGroupKey][vitalNameKey].q1 = d3.quantile(sortedValues, 0.25);
-      data.vitals[vitalGroupKey][vitalNameKey].q3 = d3.quantile(sortedValues, 0.75);
-      data.vitals[vitalGroupKey][vitalNameKey].iqr = data.vitals[vitalGroupKey][vitalNameKey].q3 - data.vitals[vitalGroupKey][vitalNameKey].q1;
-      data.vitals[vitalGroupKey][vitalNameKey].min = sortedValues[0];
-      data.vitals[vitalGroupKey][vitalNameKey].max = sortedValues[sortedValues.length - 1];
-      data.vitals[vitalGroupKey][vitalNameKey].r0 = Math.max(data.vitals[vitalGroupKey][vitalNameKey].min, data.vitals[vitalGroupKey][vitalNameKey].q1 - data.vitals[vitalGroupKey][vitalNameKey].iqr * 1.5);
-      data.vitals[vitalGroupKey][vitalNameKey].r1 = Math.min(data.vitals[vitalGroupKey][vitalNameKey].max, data.vitals[vitalGroupKey][vitalNameKey].q3 + data.vitals[vitalGroupKey][vitalNameKey].iqr * 1.5);
-      newVitalsArray.push(data.vitals[vitalGroupKey][vitalNameKey]);
+      data.vitals[vitalGroupKey][vitalNameKey].values = data.vitals[vitalGroupKey][vitalNameKey].values.filter(d => d.value !== null && !isNaN(d.value))
+
+      if (data.vitals[vitalGroupKey][vitalNameKey].values.length > 0) {
+        let sortedValues = data.vitals[vitalGroupKey][vitalNameKey].values
+          .map(d => d.value)
+          // .filter(d => d !== null && !isNaN(d))
+          .sort(d3.ascending);
+        data.vitals[vitalGroupKey][vitalNameKey].mean = d3.mean(sortedValues);
+        data.vitals[vitalGroupKey][vitalNameKey].stdev = d3.deviation(sortedValues);
+        data.vitals[vitalGroupKey][vitalNameKey].median = d3.median(sortedValues);
+        data.vitals[vitalGroupKey][vitalNameKey].q1 = d3.quantile(sortedValues, 0.25);
+        data.vitals[vitalGroupKey][vitalNameKey].q3 = d3.quantile(sortedValues, 0.75);
+        data.vitals[vitalGroupKey][vitalNameKey].iqr = data.vitals[vitalGroupKey][vitalNameKey].q3 - data.vitals[vitalGroupKey][vitalNameKey].q1;
+        data.vitals[vitalGroupKey][vitalNameKey].min = sortedValues[0];
+        data.vitals[vitalGroupKey][vitalNameKey].max = sortedValues[sortedValues.length - 1];
+        data.vitals[vitalGroupKey][vitalNameKey].r0 = Math.max(data.vitals[vitalGroupKey][vitalNameKey].min, data.vitals[vitalGroupKey][vitalNameKey].q1 - data.vitals[vitalGroupKey][vitalNameKey].iqr * 1.5);
+        data.vitals[vitalGroupKey][vitalNameKey].r1 = Math.min(data.vitals[vitalGroupKey][vitalNameKey].max, data.vitals[vitalGroupKey][vitalNameKey].q3 + data.vitals[vitalGroupKey][vitalNameKey].iqr * 1.5);
+
+        newVitalsArray.push(data.vitals[vitalGroupKey][vitalNameKey]);
+      }
     });
   });
   data.vitals = newVitalsArray;

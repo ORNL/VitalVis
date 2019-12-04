@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+  <head>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <!-- <script type="text/javascript" src="d3.min.js"></script> -->
+    <script type="text/javascript" src="./js/boxplotChart.js"></script>
+    <script type="text/javascript" src="./js/barChart.js"></script>
+    <script type="text/javascript" src="./js/readFiles.js"></script>
+    <script type="text/javascript" src="./js/binaryCategoryChart.js"></script>
+
+    <style>
+      body{
+        font: 12px sans-serif;
+        margin: 4px 20px 0px 20px;
+        background: whitesmoke;
+        /*margin: 0;*/
+      }
+    </style>
+  </head>
+  <body>
+    <center>
+      <h2>VitalVis</h2>
+      <h3>Case Summary Charts</h3>
+      <p>
+        <label for="fileInput">Files: </label>
+        <input type="file" id="fileInput" onchange="loadFiles()" multiple><br/>
+        <label for="alignMediansCheck">Align Medians: </label>
+        <input type="checkbox" id="alignMediansCheck" onChange="alignMediansCheckChanged()">
+      </p>
+    </center>
+    <div id="charts"></div>
+    <hr/>
+
+    <script>
+      const margin = {top: 30, right: 10, bottom: 50, left: 65};
+      let chartData;
+      let seriesCharts;
+      let durationChart;
+      let ageChart;
+      let genderChart;
+      let weightChart;
+      let heightChart;
+      let chartHeight = 140;
+      let caseBarWidth = 16;
+
+      const removeCharts = () => {
+        delete chartData;
+        d3.select('#charts').selectAll("*").remove();
+      }
+
+      const loadFiles = () => {
+        const files = document.getElementById('fileInput').files;
+        if (files) {
+          readFiles(files, (fileData) => {
+            // console.log('file read complete');
+            // console.log(fileData);
+            chartData = fileData;
+            removeCharts();
+            createCharts();
+          })
+        }
+      };
+
+      const createCharts = () => {
+        
+        // const chartWidth = document.getElementById('charts').clientWidth;
+        const alignMediansIsChecked = document.getElementById('alignMediansCheck').checked;
+        const caseIDs = [...new Set(chartData.map(d => d.caseid))].sort(d3.ascending);
+        const chartWidth = (caseIDs.length * caseBarWidth) + margin.left + margin.right;
+        // console.log(caseIDs);
+        
+        let tooltipText = d => {
+          return "CaseID: " + d.caseid + "\n" + 
+                 "Gender: " + d.gender;
+        }
+        genderChart = binaryCategoryChart()
+          .xScaleDomain(caseIDs)
+          .margin(margin)
+          .width(chartWidth)
+          .height(100)
+          .xValue(d => d.caseid)
+          .yValue(d => d.gender)
+          .tooltipText(tooltipText)
+          .titleText(`Patient Gender`);
+        d3.select('#charts').call(genderChart, chartData.filter(d => d.gender !== undefined));
+
+        // heightChart = barChart()
+        //   .xScaleDomain(caseIDs)
+        //   .margin(margin)
+        //   .width(divWidth)
+        //   .height(chartHeight)
+        //   .displayMode('dot')
+        //   .xValue(d => d.caseid)
+        //   .yValue(d => d.height)
+        //   .titleText(`Patient Height`);
+        // d3.select('#charts').call(heightChart, chartData.filter(d => d.height == + d.height));
+
+        tooltipText = d => {
+          return "CaseID: " + d.caseid + "\n" + 
+                 "Weight (lbs.): " + d.weight;
+        }
+        weightChart = barChart()
+          .xScaleDomain(caseIDs)
+          .margin(margin)
+          .width(chartWidth)
+          .height(chartHeight)
+          .displayMode('dot')
+          .zeroBasedYAxis(false)
+          .xValue(d => d.caseid)
+          .yValue(d => d.weight)
+          .tooltipText(tooltipText)
+          .titleText(`Patient Weight`);
+        d3.select('#charts').call(weightChart, chartData.filter(d => d.weight == + d.weight));
+
+        tooltipText = d => {
+          return "CaseID: " + d.caseid + "\n" + 
+                 "Age: " + d.age;
+        }
+        ageChart = barChart()
+          .xScaleDomain(caseIDs)
+          .margin(margin)
+          .width(chartWidth)
+          .height(chartHeight)
+          .displayMode('dot')
+          .zeroBasedYAxis(false)
+          .xValue(d => d.caseid)
+          .yValue(d => d.age)
+          .tooltipText(tooltipText)
+          .titleText(`Patient Age`);
+        d3.select('#charts').call(ageChart, chartData.filter(d => d.age == + d.age));
+
+        tooltipText = d => {
+          return "CaseID: " + d.caseid + "\n" + 
+                 "Duration (min.): " + d.durationSec;
+        }
+        durationChart = barChart()
+          .xScaleDomain(caseIDs)
+          .margin(margin)
+          .width(chartWidth)
+          .height(chartHeight)
+          .displayMode('bar')
+          .zeroBasedYAxis(true)
+          .xValue(d => d.caseid)
+          .yValue(d => d.durationSec)
+          .tooltipText(tooltipText)
+          .titleText(`Case Time Series Durations (minutes)`);
+        d3.select('#charts').call(durationChart, chartData);
+
+        let groups = new Map();
+        chartData.forEach(caseNode => {
+          Object.keys(caseNode.vitals).forEach(vitalKey => {
+            // console.log(vitalKey);
+            const vital = caseNode.vitals[vitalKey];
+            // caseNode.vitals[vitalKey].values.forEach(d => {
+              // console.log(`${vital.group} : ${vital.name}`);
+              let groupMap = groups.get(vital.group);
+              if (!groupMap) {
+                groupMap = new Map();
+                groups.set(vital.group, groupMap);
+              }
+              let nameCases = groupMap.get(vital.name);
+              if (!nameCases) {
+                nameCases = [];
+                groupMap.set(vital.name, nameCases);
+              }
+              nameCases.push({
+                name: vital.name,
+                caseid: caseNode.caseid,
+                mean: vital.mean,
+                median: vital.median,
+                stdev: vital.stdev,
+                q1: vital.q1,
+                q3: vital.q3,
+                iqr: vital.iqr,
+                r0: vital.r0,
+                r1: vital.r1,
+                min: vital.min,
+                max: vital.max,
+                units: vital.unit,
+              });
+            // });
+          });
+        });
+        // console.log(groups);
+        
+        // let groups = new Map();
+        // chartData.forEach(caseNode => {
+        //   caseNode.groups.forEach(groupNode => {
+        //     let groupMap = groups.get(groupNode.group);
+        //     if (!groupMap) {
+        //       groupMap = new Map();
+        //       groups.set(groupNode.group, groupMap);
+        //     }
+        //     groupNode.names.forEach(nameNode => {
+        //       let nameCases = groupMap.get(nameNode.name);
+        //       if (!nameCases) {
+        //         nameCases = [];
+        //         groupMap.set(nameNode.name, nameCases);
+        //       }
+        //       nameCases.push({
+        //         name: nameNode.name,
+        //         id: caseNode.id,
+        //         mean: nameNode.mean,
+        //         median: nameNode.median,
+        //         stdev: nameNode.stdev,
+        //         q1: nameNode.q1,
+        //         q3: nameNode.q3,
+        //         iqr: nameNode.iqr,
+        //         r0: nameNode.r0,
+        //         r1: nameNode.r1,
+        //         min: nameNode.min,
+        //         max: nameNode.max,
+        //       });
+        //       if (nameNode.iqr < 0) {
+        //         console.log(`IQR < 0  ${caseNode.id}  ${groupNode.group}  ${nameNode.name}`);
+        //       }
+        //     })
+        //   });
+        // });
+        // console.log(groups);
+
+        seriesCharts = [];
+        let groupKeys = [...groups.keys()].sort(d3.ascending);
+        // console.log(groupKeys);
+        groupKeys.forEach(group => {
+          let nameMap = groups.get(group);
+          let nameKeys = [...nameMap.keys()].sort(d3.ascending);
+          nameKeys.forEach(name => {
+            tooltipText = d => {
+              return "CaseID: " + d.caseid + "\n" + 
+                     "Vital: " + d.name + "\n" +
+                     "Mean: " + d.mean + "\n" +
+                     "StDev: " + d.stdev + "\n" + 
+                     "Median: " + d.median + "\n" + 
+                     "1st Quantile: " + d.q1 + "\n" + 
+                     "3rd Quantile: " + d.q3 + "\n" + 
+                     "Interquantile Range: " + d.iqr + "\n" +
+                     "Min: " + d.min + "\n" +
+                     "Max: " + d.max + "\n" +
+                     "Units: " + d.units;
+            }
+            let cases = nameMap.get(name);
+            // console.log(cases);
+            let chart = boxplotChart()
+              .xScaleDomain(caseIDs)
+              .yAxisLabel(cases[0].units)
+              .xValue(d => d.caseid)
+              .margin(margin)
+              .width(chartWidth)
+              .height(chartHeight)
+              .tooltipText(tooltipText)
+              .alignMedians(alignMediansIsChecked)
+              .titleText(`${group} : ${name}`);
+            d3.select('#charts').call(chart, cases);
+            seriesCharts.push(chart);
+          })
+        })
+      };
+
+      const alignMediansCheckChanged = () => {
+        if (seriesCharts) {
+          const alignMediansIsChecked = document.getElementById('alignMediansCheck').checked;
+          // console.log(alignMediansIsChecked);
+          seriesCharts.forEach((chart) => {
+            chart.alignMedians(alignMediansIsChecked)
+          });
+        }
+      };
+
+    </script>
+  </body>
+</html>
