@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+  <head>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <!-- <script type="text/javascript" src="d3.min.js"></script> -->
+    <!-- <script type="text/javascript" src="./js/pcpCanvasChart.js"></script> -->
+    <script type="text/javascript" src="./js/qParSetChart.js"></script>
+    <script type="text/javascript" src="./js/readFiles.js"></script>
+
+    <style>
+      body{
+        font: 12px sans-serif;
+        margin: 4px 20px 0px 20px;
+        background: whitesmoke;
+        /*margin: 0;*/
+      }
+
+      .brush .extent {
+        fill-opacity: .3;
+        stroke: #fff;
+        shape-rendering: crispEdges;
+      }
+
+      .axis line,
+      .axis path {
+          fill: none;
+          stroke: rgb(51, 51, 51);
+          stroke-width: 1.5;
+          shape-rendering: crispEdges;
+      }
+
+      .axis text {
+          fill: #646464;
+          text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- <center> -->
+      <h2>VitalVis: Parallel Coordinate Chart Prototype</h2>
+      <p>
+        <b>Description:</b> This parallel coordinates chart loads Vital Vis JSON files and calculates a temporal histogram of all vital values for all cases. The time values are converted to minutes elaspsed since the time series began for each case. Temporal histogram bins are created for every elapsed minute and values are collected in the bins. The bin values are averaged to obtain one value for each bin. This creates a record for every elapsed minute of the procedures with a single value or null value for every vital. Each elapsed minute bin record is then plotted as a line in the parallel coordinate plot. If the maximum duration of all case files loaded is 300 minutes, you will see 300 lines in the parallel coordinate chart.
+      </p>
+      <h3>Chart Controls</h3>
+      <p>
+        <label for="fileInput">Files: </label>
+        <input type="file" id="fileInput" onchange="loadFiles()" multiple><br/>
+        <label for="opacityRange">Line Opacity: </label><input type="range" min="1" max="100" value="45" class="slider" id="opacityRange" onchange="opacityRangeChanged()" text="Line Opacity Slider"><br/>
+      </p>
+      <h3>Usage Instructions:</h3>
+      <p>
+        <b>Loading Files:</b> Either select files in your system file explorer and drag and drop on the 'Choose Files' button or click the 'Choose Files' button and select files from the system file dialog. Multiple files can be loaded.</br>
+        <b>Select Lines:</b> click and drag a range box on dimension axis (multiple selections on different dimensions are combined using Boolean AND operation)</br>
+        <b>Select Dimension:</b> click on dimension name</br>
+        <b>Unselect Dimension:</b> click on selected dimension name</br>
+        <b>Move Dimension:</b> press and hold on dimension name and drag to new position</br>
+        <b>Change Line Opacity:</b> drag slider above</br>
+        <b>Correlation Coefficient Indicators:</b> shown below dimension axes when a dimension is selected (showing correlation with selected dimension)</br>
+        <b>Selection Statistics:</b> below the parallel coordinate chart a line shows the percent of all lines currently selected and a label conveys the select in a textual form
+      </p>
+    <!-- </center> -->
+    <div id="chart" style="position: relative;"></div>
+    <!-- <hr/> -->
+
+    <script>
+      const margin = {top: 60, right: 30, bottom: 20, left: 30};
+      let chartData;
+      let pcpData;
+      let chart;
+      const chartHeight = 400;
+
+      const removeChart = () => {
+        delete chartData;
+        d3.select('#chart').selectAll("*").remove();
+      }
+
+      const opacityRangeChanged = () => {
+          const opacity = document.getElementById('opacityRange').value / 100.;
+          if (chart) {
+              chart.selectedLineOpacity(opacity);
+          }
+          console.log(`opacity is ${opacity}`);
+      }
+
+      const loadFiles = () => {
+        const files = document.getElementById('fileInput').files;
+        if (files) {
+          readFiles(files, (fileData) => {
+            // console.log('file read complete');
+            // console.log(fileData);
+            chartData = fileData;
+            removeChart();
+            createChart();
+          })
+        }
+      };
+
+      const createChart = () => {
+        let chartWidth = document.getElementById('chart').clientWidth;
+        const caseIDs = [...new Set(chartData.map(d => d.caseid))].sort(d3.ascending);
+        
+
+        pcpData = [];
+        chartData.forEach(caseNode => {
+          // console.log(caseNode);
+          caseNode.vitals.forEach(vitalNode => {
+            vitalNode.values.forEach(valueNode => {
+              pcpData.push({
+                caseid: caseNode.caseid,
+                vitalGroup: vitalNode.group,
+                vitalName: vitalNode.name,
+                time: valueNode.time,
+                ElapsedMinutes: d3.timeMinute.count(caseNode.dateExtent[0], valueNode.time),
+                value: valueNode.value,
+              });
+            });
+          });
+        });
+        // console.log(pcpData);
+        let elapsedMax = d3.max(pcpData, d => d.ElapsedMinutes);
+        // console.log(elapsedMax);
+
+        vitalNames = [...new Set(pcpData.map(d => d.vitalName))];
+        // console.log(vitalNames);
+        
+        bins = d3.histogram()
+          .value(d => d.ElapsedMinutes)
+          .domain([0, elapsedMax])
+          .thresholds(elapsedMax + 1)
+          (pcpData);
+        
+        binnedData = [];
+        for (let i = 0; i < elapsedMax; i++) {
+          bin = {ElapsedMinutes: i};
+          vitalNames.forEach(vitalName => {
+            bin[vitalName] = NaN;
+          });
+          binnedData.push(bin);
+        }
+
+        bins.forEach(bin => {
+          vitalNames.forEach(vitalName => {
+            vitalValues = bin.filter(d => d.vitalName === vitalName);
+            if (vitalValues.length > 0) {
+              node = binnedData.find(d => d.ElapsedMinutes == bin.x1);
+              if (!node) {
+                node = {ElapsedMinutes: bin.x1};
+                binnedData.push(node);
+              }
+              node[vitalName] = d3.mean(vitalValues, d => d.value);
+            }
+          });
+        });
+        
+        console.log(binnedData);
+
+        let chartDimensions = [];
+        chartDimensions.push(
+          {
+            name: 'ElapsedMinutes',
+            type: 'numerical',
+          }
+        );
+        vitalNames.forEach(vitalName => {
+          chartDimensions.push( 
+            {
+              name: vitalName,
+              type: 'numerical',
+            }
+          );
+        });
+
+        let fixedDimWidth = 60 * (chartDimensions.length + 1);
+        if (chartWidth < fixedDimWidth) {
+          chartWidth = fixedDimWidth;
+        }
+
+        document.getElementById('chart').style.height = `${chartHeight}px`;
+
+        chart = pcpChart()
+          // .titleText('title')
+          .dimensions(chartDimensions)
+          .showSelectedLines(true)
+          .showUnselectedLines(false)
+          .selectedLineOpacity(.45)
+          .unselectedLineOpacity(.1)
+          .width(chartWidth)
+          .height(chartHeight)
+          .margin(margin);
+        d3.select('#chart').call(chart, binnedData);
+        // pcpData.forEach(d => {
+        //   d.elapsedMinutes = d3.timeMinutes(dateExtent[0], d.time);
+        // });
+        // console.log(pcpData);
+
+        // chartData.forEach(caseNode => {
+        //   Object.keys(caseNode.vitals).forEach(vitalKey => {
+        //     const vital = caseNode.vitals[vitalKey];
+        //       let groupMap = groups.get(vital.group);
+        //       if (!groupMap) {
+        //         groupMap = new Map();
+        //         groups.set(vital.group, groupMap);
+        //       }
+        //       let nameCases = groupMap.get(vital.name);
+        //       if (!nameCases) {
+        //         nameCases = [];
+        //         groupMap.set(vital.name, nameCases);
+        //       }
+        //       nameCases.push({
+        //         name: vital.name,
+        //         caseid: caseNode.caseid,
+        //         mean: vital.mean,
+        //         median: vital.median,
+        //         stdev: vital.stdev,
+        //         q1: vital.q1,
+        //         q3: vital.q3,
+        //         iqr: vital.iqr,
+        //         r0: vital.r0,
+        //         r1: vital.r1,
+        //         min: vital.min,
+        //         max: vital.max,
+        //         units: vital.unit,
+        //       });
+        //   });
+        // });
+
+      };
+    </script>
+  </body>
+</html>
