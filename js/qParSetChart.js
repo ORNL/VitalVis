@@ -42,6 +42,15 @@ var pcpChart = function () {
     const zeroProbabilityColor = "#E0E0E0";
 
     let hasActiveSelections = false;
+    let closeButtonStyle = {
+        "fill-opacity": 0,
+        "stroke-width": 1.5,
+        "stroke": "black",
+    };
+    let closeCrossStyle = {
+        "stroke-width": 1.5,
+        "stroke": "gray",
+    };
 
     let queryMode = "AND";
 
@@ -69,11 +78,13 @@ var pcpChart = function () {
                 x.domain(dimensionNames);
                 svg.selectAll(".dimension")
                     .each(function(dim) {
-                        // console.log(d3.select(this).attr("transform"));
                         d3.select(this)
                             .attr("transform", function(d) {
                                 return "translate(" + x(d.name) + ")";
                             });
+                        let idx = dimensionNames.findIndex(name => name === dim.name);
+                        d3.select(this).select(".dimensionLabel")
+                            .attr("y", (idx%2) ? -16 : -26);
                     });
                     
                 drawLines();
@@ -133,9 +144,9 @@ var pcpChart = function () {
         
         svg.append("text")
             .attr("class", "selection_label")
-            .attr("x", width - 2)
+            .attr("x", 0)
             .attr("y", height + 20)
-            .style("text-anchor", "end")
+            .style("text-anchor", "start")
             .style("font-size", "12")
             // .style("font-weight", "bold")
             .style("font-family", "sans-serif")
@@ -174,9 +185,7 @@ var pcpChart = function () {
                 y[dimension.name] = d3.scaleBand()
                     .domain(domain);
             }
-            // y[dimension.name].range([height - jointProbTotalHeight, corrTotalHeight]);
             y[dimension.name].range([height - corrTotalHeight - jointProbTotalHeight, 0]);
-            // y[dimension.name].range([height - (corrRectSize + corrRectPadding + corrRectLabelHeight + corrRectPadding), 0]);
         });
         x.domain(dimensionNames);
 
@@ -188,15 +197,6 @@ var pcpChart = function () {
                 });
                 dim.selectedBins = [0, 0];
                 dim.selected = new Set();
-                // let histogram = d3.histogram()
-                //     .value(d => d[dim.name])
-                //     .domain([0, 1])
-                //     .thresholds(2);
-                // let bins = histogram(chartData);
-                // // let bin = d3.bin().value(d => d[dim.name]);
-                // // let buckets = bin(chartData);
-                // // .value(d => d[dim.name]).domain([0, 1]).thresholds(2);
-                // dim.bins = bins;
             }
         })
 
@@ -215,6 +215,8 @@ var pcpChart = function () {
     function drawDimensions() {
         const axis = d3.axisLeft();
         
+        svg.selectAll(".dimension").remove();
+
         // Add a group element for each dimension.
         const g = svg.selectAll(".dimension")
                 .data(dimensions)
@@ -228,6 +230,76 @@ var pcpChart = function () {
         g.append("g")
             .attr("class", "axis")
             .each(function (d) {
+                let closeButton = d3.select(this).append("g")
+                    .on("click", function () {
+                        console.log(`close button clicked for ${d.name}`);
+                        let idx = dimensions.findIndex(dim => d === dim);
+                        let deletedDim = dimensions.splice(idx, 1);
+                        if (selectedDimension === deletedDim) {
+                            selectedDimension = null;
+                            // d3.select(this).style("fill", "#646464").style("font-size", 10);
+                        }
+                        console.log(dimensions);
+                        let dimensionNames = dimensions.map(dim => dim.name);
+                        x.domain(dimensionNames);
+                        svg.selectAll(".dimension")
+                            .each(function(dim) {
+                                if (!x(dim.name)) {
+                                    console.log(`${dim.name} is undefined`);
+                                    d3.select(this).remove();
+                                } else {
+                                    d3.select(this)
+                                        .attr("transform", function(d) {
+                                            return "translate(" + x(d.name) + ")";
+                                        });
+                                    let idx = dimensionNames.findIndex(name => name === dim.name);
+                                    d3.select(this).select(".dimensionLabel")
+                                        .attr("y", (idx%2) ? -16 : -26);
+                                }
+                            });
+                        brush();
+                        drawLines();
+                        updateCorrRectangles();
+                    })
+                    .on("mouseover", function(d) {
+                        d3.select(this).style("cursor", "pointer");
+                    })
+                    .on("mouseout", function(d) {
+                        d3.select(this).style("cursor", "default");
+                    });
+                closeButton
+                    .append('title')
+                        .text(`Click to remove ${d.name} dimension`);
+                let cross = closeButton.append("g");
+                let buttonSize = 10;
+                let cr = buttonSize / 2;
+                let cofs = buttonSize / 6;
+                let cy = -8;
+                let cx = 0;
+                closeButton.append("circle")
+                    .attr("cx", cx)
+                    .attr("cy", cy)
+                    .attr("r", cr)
+                    .style("stroke", "gray")
+                    .style("fill-opacity", 0)
+                    .style("stroke-width", 1.5);
+                cross.append("line")
+                    .attr("x1", cx - cr + cofs)
+                    .attr("y1", cy)
+                    .attr("x2", cx + cr - cofs)
+                    .attr("y2", cy)
+                    .style("stroke-width", 1.5)
+                    .style("stroke", "gray");
+                cross.append("line")
+                    .attr("x1", cx)
+                    .attr("y1", cy -cr + cofs)
+                    .attr("x2", cx)
+                    .attr("y2", cy + cr - cofs)
+                    .style("stroke-width", 1.5)
+                    .style("stroke", "gray");
+                cross.attr("transform", "rotate (45," + cx + "," + cy + ")");
+                    
+
                 if (d.type === 'numerical') {
                     d3.select(this).call(axis.scale(y[d.name]));
                     d3.select(this).append("rect")
@@ -386,10 +458,8 @@ var pcpChart = function () {
                 .style("font-family", "sans-serif")
                 .style("font-size", 10)
                 // .attr("y", -9)
-                .attr("y", function(d, i) { return (i%2) ? -6 : -16; })
+                .attr("y", function(d, i) { return (i%2) ? -16 : -26; })
                 .attr("x", 0)
-                // .attr("dy", "0.35em")
-                // .attr("transform", "rotate(-35)")
                 .text(function (d) {
                     return d.name;
                 })
@@ -397,34 +467,25 @@ var pcpChart = function () {
                 .on('click', function(d) {
                     if (d3.event.defaultPrevented) return;
 
-                    // if (d3.event.altKey) {
-                    //     console.log('alt key pressed');
-                    //     let idx = dimensions.findIndex(dim => d === dim);
-                    //     dimensions.splice(idx);
-                    //     brush();
-                    //     drawLines();
-                    //     drawDimensions();
-                    // } else {
-
-                        // if (d.name === 'sample') { return; }
-                        if (selectedDimension === d) {
-                            d3.select(this).style("fill", "#646464").style("font-size", 10);
-                            // svg.selectAll(`#label_${d.name}`).style("fill", "#646464").style("font-size", 10);
-                            selectedDimension = null;
-                        } else {
-                            if (selectedDimension != null) {
-                                d3.selectAll(".dimensionLabel")
-                                    .style("fill", "#646464")
-                                    .style("font-size", 10);
-                                // d3.select(`#${selectedDimension.name}`).style("fill", "#646464").style("font-size", 10);
-                                // d3.select(this).style("fill", "#646464").style("font-size", 10);
-                                // svg.selectAll(`#label_${selectedDimension.name}`).style("fill", "#646464").style("font-size", 10);
-                            }
-                            selectedDimension = d;
-                            d3.select(this).style("fill", "black").style("font-size", 12);
-                            // svg.selectAll(`#label_${d.name}`).style("fill", "black").style("font-size", 12);
+                    // if (d.name === 'sample') { return; }
+                    if (selectedDimension === d) {
+                        d3.select(this).style("fill", "#646464").style("font-size", 10);
+                        // svg.selectAll(`#label_${d.name}`).style("fill", "#646464").style("font-size", 10);
+                        selectedDimension = null;
+                    } else {
+                        if (selectedDimension != null) {
+                            d3.selectAll(".dimensionLabel")
+                                .style("fill", "#646464")
+                                .style("font-size", 10);
+                            // d3.select(`#${selectedDimension.name}`).style("fill", "#646464").style("font-size", 10);
+                            // d3.select(this).style("fill", "#646464").style("font-size", 10);
+                            // svg.selectAll(`#label_${selectedDimension.name}`).style("fill", "#646464").style("font-size", 10);
                         }
-                    // }
+                        selectedDimension = d;
+                        d3.select(this).style("fill", "black").style("font-size", 12);
+                        // svg.selectAll(`#label_${d.name}`).style("fill", "black").style("font-size", 12);
+                    }
+                    
                     updateCorrRectangles();
                 })
                 .on("mouseover", function(d) {
@@ -433,6 +494,12 @@ var pcpChart = function () {
                 .on("mouseout", function(d) {
                     d3.select(this).style("cursor", "default");
                 });
+            // .append("circle")
+            //     .attr("cx", 0)
+            //     .attr("cy", -6)
+            //     .attr("r", 4)
+            //     .style("stroke", "black")
+                // .style(closeButtonStyle)
 
         // Add and store a brush for each axis.
         g.append("g")
