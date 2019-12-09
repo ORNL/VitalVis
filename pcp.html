@@ -59,11 +59,15 @@
       <h3>Controls:</h3>
       <p>
         <label for="fileInput">Files: </label>
-        <input type="file" id="fileInput" onchange="loadFiles()" multiple><br/>
+        <input type="file" id="fileInput" onchange="loadFiles()" multiple><br/><br/>
         
-        <label for="opacityRange">Line Opacity: </label><input type="range" min="1" max="100" value="45" class="slider" id="opacityRange" onchange="opacityRangeChanged()" text="Line Opacity Slider"><br/
-        >
-        <input type="checkbox" id="ageCheck" onchange="ageCheckChanged()"><label for="ageCheck"> Extract Age Dimension?</label><br/>
+        <label for="binSizeRange">Bin Size (in minutes): </label><input type="range" min="1" max="15" value="1" class="slider" id="binSizeRange" onchange="binSizeRangeChanged()">
+        <span id="binSizeRangeText">1</span><br/
+        ><br/>
+        <label for="opacityRange">Line Opacity: </label><input type="range" min="1" max="100" value="40" class="slider" id="opacityRange" onchange="opacityRangeChanged()" text="Line Opacity Slider">
+        <span id="opacityRangeText">40</span><br/
+        ><br/>
+        <input type="checkbox" id="ageCheck" onchange="ageCheckChanged()"><label for="ageCheck"> Extract Age Dimension?</label><br/><br/>
         <input type="checkbox" id="showUnselectedCheck" onchange="showUnselectedCheckChanged()"><label for="ageCheck"> Show Unselected Lines?</label><br/>
         
       </p>
@@ -71,6 +75,8 @@
     <hr/>
     <h3>Chart:</h3>
     <div id="chart" style="position: relative;"></div>
+    <br/>
+    <br/>
     <!-- <hr/> -->
 
     <script>
@@ -89,11 +95,21 @@
         chart.showUnselectedLines(showUnselectedLines);
       }
 
+      const binSizeRangeChanged = () => {
+        const binSize = document.getElementById('binSizeRange').value;
+        const binSizeRangeText = document.getElementById('binSizeRangeText');
+        binSizeRangeText.innerText = new String(binSize);
+        removeChart();
+        createChart();
+      }
+
       const opacityRangeChanged = () => {
-          const opacity = document.getElementById('opacityRange').value / 100.;
-          if (chart) {
-              chart.selectedLineOpacity(opacity);
-          }
+        const opacity = document.getElementById('opacityRange').value;
+        const opacityRangeText = document.getElementById('opacityRangeText');
+        opacityRangeText.innerHTML = new String(opacity);
+        if (chart) {
+            chart.selectedLineOpacity(opacity/100);
+        }
       }
 
       const ageCheckChanged = () => {
@@ -120,6 +136,9 @@
         let pcpData = [];
         let vitalnames;
 
+        const binSize = document.getElementById('binSizeRange').value;
+        // console.log(`binSize: ${binSize}`);
+        
         if (flattenCases) {
           let valueData = [];
           data.forEach(caseNode => {
@@ -140,12 +159,18 @@
           const elapsedMax = d3.max(valueData, d => d.ElapsedMinutes);
           vitalNames = [...new Set(valueData.map(d => d.vitalName))];
           
+          // console.log(`elapsedMax: ${elapsedMax}`);
+          const numThresholds = (elapsedMax / binSize) + 1;
+          // console.log(`numThresholds: ${numThresholds}`);
+
           bins = d3.histogram()
             .value(d => d.ElapsedMinutes)
             .domain([0, elapsedMax])
-            .thresholds(elapsedMax + 1)
+            .thresholds(numThresholds)
             (valueData);
-          
+
+          // console.log(bins);
+            
           bins.forEach(bin => {
             vitalNames.forEach(vitalName => {
               vitalValues = bin.filter(d => d.vitalName === vitalName);
@@ -175,6 +200,8 @@
           let caseAges = new Map();
           let caseGenders = new Map();
 
+          let elapsedMax;
+
           data.forEach(caseNode => {
             let caseData = [];
             caseAges.set(caseNode.caseid, caseNode.age);
@@ -191,26 +218,41 @@
                 });
               });
             });
-          });
-
-          vitalNames = [...vitalNameSet];
-          delete vitalNameSet;
-
-          let elapsedMax;
-          // let pcpData = [];
-          caseDataMap.forEach((caseData, caseKey) => {
             // calculate max elapsed time for case
             const caseElapsedMax = d3.max(caseData, d => d.ElapsedMinutes);
 
             // update overall max elapsed time for all cases
             elapsedMax = elapsedMax ? caseElapsedMax > elapsedMax ? caseElapsedMax : elapsedMax : caseElapsedMax;
+            
+          });
 
+          vitalNames = [...vitalNameSet];
+          delete vitalNameSet;
+
+          // let elapsedMax;
+          // let pcpData = [];
+          caseDataMap.forEach((caseData, caseKey) => {
+            // // calculate max elapsed time for case
+            // const caseElapsedMax = d3.max(caseData, d => d.ElapsedMinutes);
+
+            // // update overall max elapsed time for all cases
+            // elapsedMax = elapsedMax ? caseElapsedMax > elapsedMax ? caseElapsedMax : elapsedMax : caseElapsedMax;
+
+            // determine the number of bin thresholds based on the current bin size
+            // console.log(`elapsedMax: ${elapsedMax}`);
+            const numThresholds = (elapsedMax / binSize) + 1;
+            // console.log(`numThresholds: ${numThresholds}`);
+            
             // calculate histogram bins
             let caseBins = d3.histogram()
               .value(d => d.ElapsedMinutes)
-              .domain([0, caseElapsedMax])
-              .thresholds(caseElapsedMax + 1)
+              // .domain([0, caseElapsedMax])
+              .domain([0, elapsedMax])
+              .thresholds(numThresholds)
+              // .thresholds(caseElapsedMax + 1)
               (caseData);
+
+            // console.log(caseBins);
 
             let casePCPData = [];
             caseBins.forEach(bin => {
@@ -289,6 +331,7 @@
 
       const createChart = () => {
         if (chartData) {
+          const showUnselectedLines = document.getElementById('showUnselectedCheck').checked;
           const flattenCases = !document.getElementById('ageCheck').checked;
           let pcpChartData = extractPCPData(flattenCases, chartData);
 
@@ -304,7 +347,7 @@
             // .titleText('title')
             .dimensions(pcpChartData.dimensions)
             .showSelectedLines(true)
-            .showUnselectedLines(false)
+            .showUnselectedLines(showUnselectedLines)
             .selectedLineOpacity(.45)
             .unselectedLineOpacity(.1)
             .width(chartWidth)
