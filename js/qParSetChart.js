@@ -590,7 +590,11 @@ var pcpChart = function () {
                         let randomY = Math.random() * (y[dim.name].bandwidth()/4) - (y[dim.name].bandwidth() / 8);
                         ctx.beginPath();
                         ctx.moveTo(x(dim.name), y[dim.name](d[dim.name]) + (y[dim.name].bandwidth()/2) + randomY);
-                        ctx.lineTo(x(dimNext.name), y[dimNext.name](d[dimNext.name]) + (y[dimNext.name].bandwidth()/2) + randomY);
+                        if (dimNext.type === 'categorical') {
+                            ctx.lineTo(x(dimNext.name), y[dimNext.name](d[dimNext.name]) + (y[dimNext.name].bandwidth()/2) + randomY);
+                        } else {
+                            ctx.lineTo(x(dimNext.name), y[dimNext.name](d[dimNext.name]));
+                        }
                         ctx.stroke();
                     } else {
                         ctx.beginPath();
@@ -691,7 +695,7 @@ var pcpChart = function () {
                             // console.log(actives);
                             for (let i = 0; i < actives.length; i++) {
                                 if (actives[i].dimension.name === dim.name) {
-                                    console.log("drawing line " + dim.name);
+                                    // console.log("drawing line " + dim.name);
                                     d3.select(this).append("line")
                                         .attr("class", "jointProbLine")
                                         .attr("x1", 0)

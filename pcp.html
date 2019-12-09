@@ -3,8 +3,6 @@
 <html>
   <head>
     <script src="https://d3js.org/d3.v5.min.js"></script>
-    <!-- <script type="text/javascript" src="d3.min.js"></script> -->
-    <!-- <script type="text/javascript" src="./js/pcpCanvasChart.js"></script> -->
     <script type="text/javascript" src="./js/qParSetChart.js"></script>
     <script type="text/javascript" src="./js/readFiles.js"></script>
     <script type="text/javascript" src="./js/d3CloseButton.js"></script>
@@ -43,16 +41,12 @@
       <p>
         <b>Description:</b> This parallel coordinates chart loads Vital Vis JSON files and calculates a temporal histogram of all vital values for all cases. The time values are converted to minutes elaspsed since the time series began for each case. Temporal histogram bins are created for every elapsed minute and values are collected in the bins. The bin values are averaged to obtain one value for each bin. This creates a record for every elapsed minute of the procedures with a single value or null value for every vital. Each elapsed minute bin record is then plotted as a line in the parallel coordinate plot. If the maximum duration of all case files loaded is 300 minutes, you will see 300 lines in the parallel coordinate chart.
       </p>
-      <h3>Chart Controls</h3>
-      <p>
-        <label for="fileInput">Files: </label>
-        <input type="file" id="fileInput" onchange="loadFiles()" multiple><br/>
-        <label for="opacityRange">Line Opacity: </label><input type="range" min="1" max="100" value="45" class="slider" id="opacityRange" onchange="opacityRangeChanged()" text="Line Opacity Slider"><br/>
-      </p>
-      <h3>Usage Instructions:</h3>
+    
+      <h3>Instructions:</h3>
       <p>
         <b>Loading Files:</b> Either select files in your system file explorer and drag and drop on the 'Choose Files' button or click the 'Choose Files' button and select files from the system file dialog. Multiple files can be loaded.</br>
         <b>Select Lines:</b> click and drag a range box on dimension axis (multiple selections on different dimensions are combined using Boolean AND operation)</br>
+        <b>Extract Ages?:</b> if checked, cases will be extracted adding an age dimension and producing more lines in the parallel coordinates chart.</br>
         <b>Remove Dimension:</b> click on close 'X' button below dimension name</br>
         <b>Select Dimension:</b> click on dimension name</br>
         <b>Unselect Dimension:</b> click on selected dimension name</br>
@@ -61,14 +55,27 @@
         <b>Correlation Coefficient Indicators:</b> shown below dimension axes when a dimension is selected (showing correlation with selected dimension)</br>
         <b>Selection Statistics:</b> below the parallel coordinate chart a line shows the percent of all lines currently selected and a label conveys the select in a textual form
       </p>
+
+      <h3>Controls:</h3>
+      <p>
+        <label for="fileInput">Files: </label>
+        <input type="file" id="fileInput" onchange="loadFiles()" multiple><br/>
+        
+        <label for="opacityRange">Line Opacity: </label><input type="range" min="1" max="100" value="45" class="slider" id="opacityRange" onchange="opacityRangeChanged()" text="Line Opacity Slider"><br/
+        >
+        <input type="checkbox" id="ageCheck" onchange="ageCheckChanged()"><label for="ageCheck"> Extract Age Dimension?</label><br/>
+        <input type="checkbox" id="showUnselectedCheck" onchange="showUnselectedCheckChanged()"><label for="ageCheck"> Show Unselected Lines?</label><br/>
+        
+      </p>
     <!-- </center> -->
+    <hr/>
+    <h3>Chart:</h3>
     <div id="chart" style="position: relative;"></div>
     <!-- <hr/> -->
 
     <script>
       const margin = {top: 60, right: 30, bottom: 20, left: 30};
       let chartData;
-      let pcpData;
       let chart;
       const chartHeight = 400;
 
@@ -77,20 +84,28 @@
         d3.select('#chart').selectAll("*").remove();
       }
 
+      const showUnselectedCheckChanged = () => {
+        const showUnselectedLines = document.getElementById('showUnselectedCheck').checked;
+        chart.showUnselectedLines(showUnselectedLines);
+      }
+
       const opacityRangeChanged = () => {
           const opacity = document.getElementById('opacityRange').value / 100.;
           if (chart) {
               chart.selectedLineOpacity(opacity);
           }
-          console.log(`opacity is ${opacity}`);
+      }
+
+      const ageCheckChanged = () => {
+        // remove chart and reprocess data to extract cases and age
+        removeChart();
+        createChart();
       }
 
       const loadFiles = () => {
         const files = document.getElementById('fileInput').files;
         if (files) {
           readFiles(files, (fileData) => {
-            // console.log('file read complete');
-            // console.log(fileData);
             chartData = fileData;
             removeChart();
             createChart();
@@ -98,18 +113,345 @@
         }
       };
 
+      const extractPCPData = (flattenCases, data) => {
+        // console.log(flattenCases);
+        // console.log(data);
+        let pcpDimensions = [];
+        let pcpData = [];
+        let vitalnames;
+
+        if (flattenCases) {
+          let valueData = [];
+          data.forEach(caseNode => {
+            // console.log(caseNode);
+            caseNode.vitals.forEach(vitalNode => {
+              vitalNode.values.forEach(valueNode => {
+                valueData.push({
+                  caseid: caseNode.caseid,
+                  vitalGroup: vitalNode.group,
+                  vitalName: vitalNode.name,
+                  ElapsedMinutes: d3.timeMinute.count(caseNode.dateExtent[0], valueNode.time),
+                  value: valueNode.value,
+                });
+              });
+            });
+          });
+
+          const elapsedMax = d3.max(valueData, d => d.ElapsedMinutes);
+          vitalNames = [...new Set(valueData.map(d => d.vitalName))];
+          
+          bins = d3.histogram()
+            .value(d => d.ElapsedMinutes)
+            .domain([0, elapsedMax])
+            .thresholds(elapsedMax + 1)
+            (valueData);
+          
+          bins.forEach(bin => {
+            vitalNames.forEach(vitalName => {
+              vitalValues = bin.filter(d => d.vitalName === vitalName);
+              if (vitalValues.length > 0) {
+                let pcpDatum = pcpData.find(d => d.ElapsedMinutes == bin.x1);
+                if (!pcpDatum) {
+                  pcpDatum = {ElapsedMinutes: bin.x1};
+                  vitalNames.forEach(name => {
+                    pcpDatum[name] = NaN;
+                  });
+                  pcpData.push(pcpDatum);
+                }
+                pcpDatum[vitalName] = d3.mean(vitalValues, d => d.value);
+              }
+            });
+          });
+
+          pcpDimensions.push(
+            {
+              name: 'ElapsedMinutes',
+              type: 'numerical',
+            }
+          );
+        } else {
+          let vitalNameSet = new Set();
+          let caseDataMap = new Map();
+          let caseAges = new Map();
+          let caseGenders = new Map();
+
+          data.forEach(caseNode => {
+            let caseData = [];
+            caseAges.set(caseNode.caseid, caseNode.age);
+            caseGenders.set(caseNode.caseid, caseNode.gender);
+            caseDataMap.set(caseNode.caseid, caseData);
+            caseNode.vitals.forEach(vitalNode => {
+              vitalNode.values.forEach(valueNode => {
+                vitalNameSet.add(vitalNode.name);
+                caseData.push({
+                  vitalGroup: vitalNode.group,
+                  vitalName: vitalNode.name,
+                  ElapsedMinutes: d3.timeMinute.count(caseNode.dateExtent[0], valueNode.time),
+                  value: valueNode.value,
+                });
+              });
+            });
+          });
+
+          vitalNames = [...vitalNameSet];
+          delete vitalNameSet;
+
+          let elapsedMax;
+          // let pcpData = [];
+          caseDataMap.forEach((caseData, caseKey) => {
+            // calculate max elapsed time for case
+            const caseElapsedMax = d3.max(caseData, d => d.ElapsedMinutes);
+
+            // update overall max elapsed time for all cases
+            elapsedMax = elapsedMax ? caseElapsedMax > elapsedMax ? caseElapsedMax : elapsedMax : caseElapsedMax;
+
+            // calculate histogram bins
+            let caseBins = d3.histogram()
+              .value(d => d.ElapsedMinutes)
+              .domain([0, caseElapsedMax])
+              .thresholds(caseElapsedMax + 1)
+              (caseData);
+
+            let casePCPData = [];
+            caseBins.forEach(bin => {
+              vitalNames.forEach(vitalName => {
+                let vitalValues = bin.filter(d => d.vitalName === vitalName);
+                if (vitalValues.length > 0) {
+                  let casePCPDatum = casePCPData.find(d => d.ElapsedMinutes == bin.x1);
+                  if (!casePCPDatum) {
+                    casePCPDatum = {
+                      caseid: caseKey,
+                      Age: caseAges.get(caseKey),
+                      ElapsedMinutes: bin.x1};
+                    vitalNames.forEach(name => {
+                      casePCPDatum[name] = NaN;
+                    });
+                    casePCPData.push(casePCPDatum);
+                  }
+                  casePCPDatum[vitalName] = d3.mean(vitalValues, d => d.value);
+                }
+              });
+            });
+            // console.log(casePCPData);
+            pcpData = pcpData.concat(casePCPData);
+          });
+
+          // console.log(pcpData);
+
+          // let chartDimensions = [];
+          // chartDimensions.push(
+          //   {
+          //     name: 'caseid',
+          //     type: 'categorical',
+          //   }
+          // );
+          pcpDimensions.push(
+            {
+              name: 'ElapsedMinutes',
+              type: 'numerical',
+            }
+          );
+          pcpDimensions.push(
+            { 
+              name: 'Age',
+              type: 'numerical',
+            }
+          );
+        }
+
+        
+        vitalNames.sort((a,b) => {
+          if (a > b) return 1;
+          else if (b > a) return -1;
+          return 0;
+        });
+        vitalNames.forEach(vitalName => {
+          pcpDimensions.push( 
+            {
+              name: vitalName,
+              type: 'numerical',
+            }
+          );
+        });
+
+        // pcpDimensions.sort((a, b) => {
+        //   if (a.name > b.name) { return 1; }
+        //   else if (a.name < b.name) { return -1; }
+        //   return 0;
+        // });
+
+        return {
+          dimensions: pcpDimensions, 
+          data: pcpData,
+        };
+      };
+
+
       const createChart = () => {
+        if (chartData) {
+          const flattenCases = !document.getElementById('ageCheck').checked;
+          let pcpChartData = extractPCPData(flattenCases, chartData);
+
+          let chartWidth = document.getElementById('chart').clientWidth;
+          let fixedDimChartWidth = 60 * (pcpChartData.dimensions.length + 1);
+          if (chartWidth < fixedDimChartWidth) {
+            chartWidth = fixedDimChartWidth;
+          }
+
+          document.getElementById('chart').style.height = `${chartHeight}px`;
+
+          chart = pcpChart()
+            // .titleText('title')
+            .dimensions(pcpChartData.dimensions)
+            .showSelectedLines(true)
+            .showUnselectedLines(false)
+            .selectedLineOpacity(.45)
+            .unselectedLineOpacity(.1)
+            .width(chartWidth)
+            .height(chartHeight)
+            .margin(margin);
+          d3.select('#chart').call(chart, pcpChartData.data);
+        }
+      };
+
+
+      const createChartOlder = () => {
+        const flattenCases = !document.getElementById('ageCheck').checked;
+        console.log(`flattenCases is ${flattenCases}`);
+
+        console.log(chartData);
+        // const caseIDs = [...new Set(chartData.map(d => d.caseid))].sort(d3.ascending);
+        
+        let vitalNameSet = new Set();
+        let caseDataMap = new Map();
+        let caseAges = new Map();
+        let caseGenders = new Map();
+
+        chartData.forEach(caseNode => {
+          let caseData = [];
+          caseAges.set(caseNode.caseid, caseNode.age);
+          caseGenders.set(caseNode.caseid, caseNode.gender);
+          caseDataMap.set(caseNode.caseid, caseData);
+          caseNode.vitals.forEach(vitalNode => {
+            vitalNode.values.forEach(valueNode => {
+              vitalNameSet.add(vitalNode.name);
+              caseData.push({
+                vitalGroup: vitalNode.group,
+                vitalName: vitalNode.name,
+                ElapsedMinutes: d3.timeMinute.count(caseNode.dateExtent[0], valueNode.time),
+                value: valueNode.value,
+              });
+            });
+          });
+        });
+
+        let vitalNames = [...vitalNameSet];
+        delete vitalNameSet;
+
+        let elapsedMax;
+        let pcpData = [];
+        caseDataMap.forEach((caseData, caseKey) => {
+          // calculate max elapsed time for case
+          const caseElapsedMax = d3.max(caseData, d => d.ElapsedMinutes);
+
+          // update overall max elapsed time for all cases
+          elapsedMax = elapsedMax ? caseElapsedMax > elapsedMax ? caseElapsedMax : elapsedMax : caseElapsedMax;
+
+          // calculate histogram bins
+          let caseBins = d3.histogram()
+            .value(d => d.ElapsedMinutes)
+            .domain([0, caseElapsedMax])
+            .thresholds(caseElapsedMax + 1)
+            (caseData);
+
+          let casePCPData = [];
+          caseBins.forEach(bin => {
+            vitalNames.forEach(vitalName => {
+              let vitalValues = bin.filter(d => d.vitalName === vitalName);
+              if (vitalValues.length > 0) {
+                let casePCPDatum = casePCPData.find(d => d.ElapsedMinutes == bin.x1);
+                if (!casePCPDatum) {
+                  casePCPDatum = {
+                    caseid: caseKey,
+                    age: caseAges.get(caseKey),
+                    ElapsedMinutes: bin.x1};
+                  vitalNames.forEach(name => {
+                    casePCPDatum[name] = NaN;
+                  });
+                  casePCPData.push(casePCPDatum);
+                }
+                casePCPDatum[vitalName] = d3.mean(vitalValues, d => d.value);
+              }
+            });
+          });
+          // console.log(casePCPData);
+          pcpData = pcpData.concat(casePCPData);
+        });
+
+        console.log(pcpData);
+
+        let chartDimensions = [];
+        // chartDimensions.push(
+        //   {
+        //     name: 'caseid',
+        //     type: 'categorical',
+        //   }
+        // );
+        chartDimensions.push(
+          {
+            name: 'ElapsedMinutes',
+            type: 'numerical',
+          }
+        );
+        chartDimensions.push(
+          { 
+            name: 'age',
+            type: 'numerical',
+          }
+        );
+        vitalNames.forEach(vitalName => {
+          chartDimensions.push( 
+            {
+              name: vitalName,
+              type: 'numerical',
+            }
+          );
+        });
+
+        let chartWidth = document.getElementById('chart').clientWidth;
+        let fixedDimChartWidth = 60 * (chartDimensions.length + 1);
+        if (chartWidth < fixedDimChartWidth) {
+          chartWidth = fixedDimChartWidth;
+        }
+
+        document.getElementById('chart').style.height = `${chartHeight}px`;
+
+        chart = pcpChart()
+          // .titleText('title')
+          .dimensions(chartDimensions)
+          .showSelectedLines(true)
+          .showUnselectedLines(false)
+          .selectedLineOpacity(.45)
+          .unselectedLineOpacity(.1)
+          .width(chartWidth)
+          .height(chartHeight)
+          .margin(margin);
+        d3.select('#chart').call(chart, pcpData);
+      };
+
+
+      const createChartOldest = () => {
         let chartWidth = document.getElementById('chart').clientWidth;
         const caseIDs = [...new Set(chartData.map(d => d.caseid))].sort(d3.ascending);
         
-
-        pcpData = [];
+        let pcpData = [];
         chartData.forEach(caseNode => {
           // console.log(caseNode);
           caseNode.vitals.forEach(vitalNode => {
             vitalNode.values.forEach(valueNode => {
               pcpData.push({
                 caseid: caseNode.caseid,
+                age: caseNode.age,
                 vitalGroup: vitalNode.group,
                 vitalName: vitalNode.name,
                 time: valueNode.time,
@@ -119,11 +461,12 @@
             });
           });
         });
-        // console.log(pcpData);
-        let elapsedMax = d3.max(pcpData, d => d.ElapsedMinutes);
+        console.log(pcpData);
+
+        const elapsedMax = d3.max(pcpData, d => d.ElapsedMinutes);
         // console.log(elapsedMax);
 
-        vitalNames = [...new Set(pcpData.map(d => d.vitalName))];
+        const vitalNames = [...new Set(pcpData.map(d => d.vitalName))];
         // console.log(vitalNames);
         
         bins = d3.histogram()
