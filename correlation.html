@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+  <head>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script type="text/javascript" src="./js/correlationChart.js"></script>
+    <script type="text/javascript" src="./js/readFiles.js"></script>
+
+    <style>
+      body{
+        font: 12px sans-serif;
+        margin: 4px 20px 0px 20px;
+        background: whitesmoke;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- <center> -->
+      <h2>VitalVis: Correlation Matrix Visualization Prototype</h2>
+      <p>
+        <b>Description:</b> Correlation matrix visualization with scatterplot.
+      </p>
+    
+      <h3>Instructions:</h3>
+      <p>
+        <b>Loading Files:</b> Either select files in your system file explorer and drag and drop on the 'Choose Files' button or click the 'Choose Files' button and select files from the system file dialog. Multiple files can be loaded.</br>
+        <b>Bin Size:</b> Changes the time bin size to alter sample size of average values.</br>
+        <b>Scatterplot Point Opacity:</b> Make scatterplot points more or less transparent.</br>
+        <b>Extract Age Dimension:</b> Extract ages from records adding a dimensiosn.</br>
+        <b>Clicking on a Rectangle:</b> Shows the scatterplot between the two dimensions.</br>
+        <b>Hovering over a Rectangle:</b> Displays the correlation coefficient between the two dimensions</br>
+        <b>Color Scale:</b> Encodes the correlation coefficient between each pairwise combination of dimensions. Blues are positive correlations and reds are negative. The saturation of the color encodes the strength of the correlation. White means no correlation between the two dimensions.
+        
+      </p>
+
+      <h3>Controls:</h3>
+      <p>
+        <label for="fileInput">Files: </label>
+        <input type="file" id="fileInput" onchange="loadFiles()" multiple><br/><br/>
+        
+        <label for="binSizeRange">Bin Size (in minutes): </label><input type="range" min="1" max="15" value="1" class="slider" id="binSizeRange" onchange="binSizeRangeChanged()">
+        <span id="binSizeRangeText">1</span><br/><br/>
+        <label for="opacityRange">Scatterplot Point Opacity: </label><input type="range" min="1" max="100" value="35" class="slider" id="opacityRange" onchange="opacityRangeChanged()">
+        <span id="opacityRangeText">35</span><br/><br/>
+        <input type="checkbox" id="ageCheck" onchange="ageCheckChanged()"><label for="ageCheck"> Extract Age Dimension?</label><br/><br/>
+        <!-- <input type="checkbox" id="showUnselectedCheck" onchange="showUnselectedCheckChanged()"><label for="ageCheck"> Show Unselected Lines?</label><br/> -->
+        
+      </p>
+    <!-- </center> -->
+    <hr/>
+    <h3>Chart:</h3>
+    <div id="chart"></div>
+    <br/>
+    <br/>
+    <!-- <hr/> -->
+
+    <script>
+      const margin = {top: 20, right: 20, bottom: 100, left: 100};
+      let chartData;
+      let chart;
+
+      const removeChart = () => {
+        delete chartData;
+        d3.select('#chart').selectAll("*").remove();
+      }
+
+      const binSizeRangeChanged = () => {
+        const binSize = document.getElementById('binSizeRange').value;
+        const binSizeRangeText = document.getElementById('binSizeRangeText');
+        binSizeRangeText.innerText = new String(binSize);
+        removeChart();
+        createChart();
+      }
+
+      const opacityRangeChanged = () => {
+        const opacity = document.getElementById('opacityRange').value;
+        const opacityRangeText = document.getElementById('opacityRangeText');
+        opacityRangeText.innerHTML = new String(opacity);
+        if (chart) {
+            chart.scatterplotPointOpacity(opacity/100);
+        }
+      }
+
+      const ageCheckChanged = () => {
+        // remove chart and reprocess data to extract cases and age
+        removeChart();
+        createChart();
+      }
+
+      const loadFiles = () => {
+        const files = document.getElementById('fileInput').files;
+        if (files) {
+          readFiles(files, (fileData) => {
+            chartData = fileData;
+            removeChart();
+            createChart();
+          })
+        }
+      };
+
+      const extractData = (flattenCases, data) => {
+        // console.log(flattenCases);
+        // console.log(data);
+        let pcpDimensions = [];
+        let pcpData = [];
+        let vitalnames;
+
+        const binSize = document.getElementById('binSizeRange').value;
+        // console.log(`binSize: ${binSize}`);
+        
+        if (flattenCases) {
+          let valueData = [];
+          data.forEach(caseNode => {
+            // console.log(caseNode);
+            caseNode.vitals.forEach(vitalNode => {
+              vitalNode.values.forEach(valueNode => {
+                valueData.push({
+                  caseid: caseNode.caseid,
+                  vitalGroup: vitalNode.group,
+                  vitalName: vitalNode.name,
+                  ElapsedMinutes: d3.timeMinute.count(caseNode.dateExtent[0], valueNode.time),
+                  value: valueNode.value,
+                });
+              });
+            });
+          });
+
+          const elapsedMax = d3.max(valueData, d => d.ElapsedMinutes);
+          vitalNames = [...new Set(valueData.map(d => d.vitalName))];
+          
+          // console.log(`elapsedMax: ${elapsedMax}`);
+          const numThresholds = (elapsedMax / binSize) + 1;
+          // console.log(`numThresholds: ${numThresholds}`);
+
+          bins = d3.histogram()
+            .value(d => d.ElapsedMinutes)
+            .domain([0, elapsedMax])
+            .thresholds(numThresholds)
+            (valueData);
+
+          // console.log(bins);
+            
+          bins.forEach(bin => {
+            vitalNames.forEach(vitalName => {
+              vitalValues = bin.filter(d => d.vitalName === vitalName);
+              if (vitalValues.length > 0) {
+                let pcpDatum = pcpData.find(d => d.ElapsedMinutes == bin.x1);
+                if (!pcpDatum) {
+                  pcpDatum = {ElapsedMinutes: bin.x1};
+                  vitalNames.forEach(name => {
+                    pcpDatum[name] = NaN;
+                  });
+                  pcpData.push(pcpDatum);
+                }
+                pcpDatum[vitalName] = d3.mean(vitalValues, d => d.value);
+              }
+            });
+          });
+
+          pcpDimensions.push(
+            {
+              name: 'ElapsedMinutes',
+              type: 'numerical',
+              accessor: d => d.ElapsedMinutes,
+            }
+          );
+        } else {
+          let vitalNameSet = new Set();
+          let caseDataMap = new Map();
+          let caseAges = new Map();
+          let caseGenders = new Map();
+
+          let elapsedMax;
+
+          data.forEach(caseNode => {
+            let caseData = [];
+            caseAges.set(caseNode.caseid, caseNode.age);
+            caseGenders.set(caseNode.caseid, caseNode.gender);
+            caseDataMap.set(caseNode.caseid, caseData);
+            caseNode.vitals.forEach(vitalNode => {
+              vitalNode.values.forEach(valueNode => {
+                vitalNameSet.add(vitalNode.name);
+                caseData.push({
+                  vitalGroup: vitalNode.group,
+                  vitalName: vitalNode.name,
+                  ElapsedMinutes: d3.timeMinute.count(caseNode.dateExtent[0], valueNode.time),
+                  value: valueNode.value,
+                });
+              });
+            });
+            // calculate max elapsed time for case
+            const caseElapsedMax = d3.max(caseData, d => d.ElapsedMinutes);
+
+            // update overall max elapsed time for all cases
+            elapsedMax = elapsedMax ? caseElapsedMax > elapsedMax ? caseElapsedMax : elapsedMax : caseElapsedMax;
+            
+          });
+
+          vitalNames = [...vitalNameSet];
+          delete vitalNameSet;
+
+          // let elapsedMax;
+          // let pcpData = [];
+          caseDataMap.forEach((caseData, caseKey) => {
+            // // calculate max elapsed time for case
+            // const caseElapsedMax = d3.max(caseData, d => d.ElapsedMinutes);
+
+            // // update overall max elapsed time for all cases
+            // elapsedMax = elapsedMax ? caseElapsedMax > elapsedMax ? caseElapsedMax : elapsedMax : caseElapsedMax;
+
+            // determine the number of bin thresholds based on the current bin size
+            // console.log(`elapsedMax: ${elapsedMax}`);
+            const numThresholds = (elapsedMax / binSize) + 1;
+            // console.log(`numThresholds: ${numThresholds}`);
+            
+            // calculate histogram bins
+            let caseBins = d3.histogram()
+              .value(d => d.ElapsedMinutes)
+              // .domain([0, caseElapsedMax])
+              .domain([0, elapsedMax])
+              .thresholds(numThresholds)
+              // .thresholds(caseElapsedMax + 1)
+              (caseData);
+
+            // console.log(caseBins);
+
+            let casePCPData = [];
+            caseBins.forEach(bin => {
+              vitalNames.forEach(vitalName => {
+                let vitalValues = bin.filter(d => d.vitalName === vitalName);
+                if (vitalValues.length > 0) {
+                  let casePCPDatum = casePCPData.find(d => d.ElapsedMinutes == bin.x1);
+                  if (!casePCPDatum) {
+                    casePCPDatum = {
+                      caseid: caseKey,
+                      Age: caseAges.get(caseKey),
+                      ElapsedMinutes: bin.x1};
+                    vitalNames.forEach(name => {
+                      casePCPDatum[name] = NaN;
+                    });
+                    casePCPData.push(casePCPDatum);
+                  }
+                  casePCPDatum[vitalName] = d3.mean(vitalValues, d => d.value);
+                }
+              });
+            });
+            // console.log(casePCPData);
+            pcpData = pcpData.concat(casePCPData);
+          });
+
+          // console.log(pcpData);
+
+          // let chartDimensions = [];
+          // chartDimensions.push(
+          //   {
+          //     name: 'caseid',
+          //     type: 'categorical',
+          //   }
+          // );
+          pcpDimensions.push(
+            {
+              name: 'ElapsedMinutes',
+              type: 'numerical',
+              accessor: d => d.ElapsedMinutes,
+            }
+          );
+          pcpDimensions.push(
+            { 
+              name: 'Age',
+              type: 'numerical',
+              accessor: d => d.age,
+            }
+          );
+        }
+
+        
+        vitalNames.sort((a,b) => {
+          if (a > b) return 1;
+          else if (b > a) return -1;
+          return 0;
+        });
+        vitalNames.forEach(vitalName => {
+          pcpDimensions.push( 
+            {
+              name: vitalName,
+              type: 'numerical',
+              accessor: d => d[vitalName],
+            }
+          );
+        });
+
+        // pcpDimensions.sort((a, b) => {
+        //   if (a.name > b.name) { return 1; }
+        //   else if (a.name < b.name) { return -1; }
+        //   return 0;
+        // });
+
+        return {
+          columns: pcpDimensions, 
+          data: pcpData,
+        };
+      };
+
+
+      const createChart = () => {
+        if (chartData) {
+          // const showUnselectedLines = document.getElementById('showUnselectedCheck').checked;
+          const opacity = document.getElementById('opacityRange').value/100.;
+          const flattenCases = !document.getElementById('ageCheck').checked;
+          let splomChartData = extractData(flattenCases, chartData);
+
+          // console.log(splomChartData);
+          
+          let chartWidth = document.getElementById('chart').clientWidth;
+          let chartHeight = chartWidth;
+          // let fixedDimChartWidth = 60 * (pcpChartData.dimensions.length + 1);
+          // if (chartWidth < fixedDimChartWidth) {
+          //   chartWidth = fixedDimChartWidth;
+          // }
+
+          // document.getElementById('chart').style.height = `${chartHeight}px`;
+
+          chart = correlationChart()
+            // .titleText('title')
+            // .dimensions(splomChartData.dimensions)
+            // .showSelectedLines(true)
+            // .showUnselectedLines(showUnselectedLines)
+            // .selectedLineOpacity(.45)
+            // .unselectedLineOpacity(.1)
+            .scatterplotPointOpacity(opacity)
+            .width(chartWidth)
+            .height(chartHeight)
+            .margin(margin);
+          d3.select('#chart').call(chart, splomChartData);
+        }
+      };
+    </script>
+  </body>
+</html>
