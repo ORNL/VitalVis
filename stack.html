@@ -650,46 +650,17 @@
                 });
               }
             });
-            // .titleText(`${chartData.name} Events`);
           
           d3.select(`#${chartDivID}`).call(chartData.chart, chartData.data);
         });
 
         vitalsChartData.forEach((chartData) => {
-          // console.log(chartData);
-          const chartDivID = createChartDiv(chartData, vitalsChartData);
-          // console.log(chartDivID);
-
-          if (chartData.name === 'BloodPressure') {
-            chartData.chart = timeseriesLineChart()
-              // .titleText(chartData.name)
-              .margin(margin)
-              .dateExtent(dateExtent)
-              .width(divWidth)
-              .height(chartHeight)
-              .showPoints(showPoints)
-              .zoomWithWheel(false)
-              .showLine(showLines)
-              .curveFunction(getCurrentCurveFunction())
-              .dateValue((d) => d.date)
-              .zoomedHandler(function (t) {
-                if (document.getElementById('syncZoomCheck').checked) {
-                  vitalsChartData.forEach( function (aChart, column, map) {
-                    if (chartData.chart != aChart.chart) {
-                      aChart.chart.applyTransform(t);
-                    }
-                  });
-                  eventsChartData.forEach( function (aChart, column, map) {
-                    if (chartData.chart != aChart.chart) {
-                      aChart.chart.applyTransform(t);
-                    }
-                  });
-                }
-              })
-              .yValue((d) => d.NIBPMean)
-              .highValue((d) => d.NIBPSys)
-              .lowValue((d) => d.NIBPDias);
+          const valueExtent = d3.extent(chartData.data, d => d.value);
+          if (valueExtent[0] === 0 && valueExtent[1] === 0) {
+            console.log(`${chartData.name} ignored because value min/max is 0`);
           } else {
+            const chartDivID = createChartDiv(chartData, vitalsChartData);
+
             chartData.chart = timeseriesLineChart()
               // .titleText(chartData.name)
               .margin(margin)
@@ -716,8 +687,9 @@
                 }
               })
               .yValue((d) => d.value);
+            
+            d3.select(`#${chartDivID}`).call(chartData.chart, chartData.data);
           }
-          d3.select(`#${chartDivID}`).call(chartData.chart, chartData.data);
         });
       };
     
