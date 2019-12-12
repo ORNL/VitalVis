@@ -32,6 +32,26 @@ const readFiles = (files, fileReadComplete) => {
   }
 };
 
+const readFilesFromNames = (filenames, fileReadComplete) => {
+  if (filenames) {
+    let allFileData = [];
+    
+    Promise.all(filenames.map(f => d3.json(f)))
+      .then(function (filesData) {
+        console.log(filesData.length);
+        filesData.forEach(fileData => {
+          processJSONData(fileData);
+          allFileData.push(fileData);
+        });
+        fileReadComplete(allFileData);
+      })
+      .catch(function (error) {
+        console.log(error);
+      });
+      
+  }
+};
+
 const processJSONData = data => {
   const fileDateExtent = [null, null];
   

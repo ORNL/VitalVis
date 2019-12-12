@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+  <head>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script type="text/javascript" src="./js/eventOffsetLineChart.js"></script>
+    <script type="text/javascript" src="./js/readFiles.js"></script>
+
+    <style>
+      body{
+        font: 12px sans-serif;
+        margin: 4px 20px 0px 20px;
+        background: whitesmoke;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- <center> -->
+      <h2>VitalVis: Event Effects Visualization Prototype</h2>
+      <!-- <p>
+        <b>Description:</b> Correlation matrix visualization with scatterplot.
+      </p> -->
+    
+      <h3>Instructions:</h3>
+      <p>
+        <b>Loading Files:</b> Either select files in your system file explorer and drag and drop on the 'Choose Files' button or click the 'Choose Files' button and select files from the system file dialog. Multiple files can be loaded.</br>
+      </p>
+
+      <h3>Controls:</h3>
+      <p>
+        <label for="fileInput">Files: </label>
+        <input type="file" id="fileInput" onchange="loadFiles()" multiple><br/><br/>
+
+        <label for="fluidGroupSelect">Fluid Group: </label>
+        <select id="fluidGroupSelect" onChange="fluidGroupSelected()"></select><br/><br/>
+
+        <label for="fluidNameSelect">Fluid Name:</label>
+        <select id="fluidNameSelect" onChange="fluidNameSelected()"></select><br/><br/>
+
+        <!-- <label for="binSizeRange">Bin Size (in minutes): </label><input type="range" min="1" max="15" value="1" class="slider" id="binSizeRange" onchange="binSizeRangeChanged()">
+        <span id="binSizeRangeText">1</span><br/><br/>
+        <label for="opacityRange">Scatterplot Point Opacity: </label><input type="range" min="1" max="100" value="35" class="slider" id="opacityRange" onchange="opacityRangeChanged()">
+        <span id="opacityRangeText">35</span><br/><br/>
+        <input type="checkbox" id="ageCheck" onchange="ageCheckChanged()"><label for="ageCheck"> Extract Age Dimension?</label><br/><br/> -->
+        <!-- <input type="checkbox" id="showUnselectedCheck" onchange="showUnselectedCheckChanged()"><label for="ageCheck"> Show Unselected Lines?</label><br/> -->
+        
+      </p>
+    <!-- </center> -->
+    <hr/>
+    <h3>Charts:</h3>
+    <div id="charts"></div>
+    <br/>
+    <br/>
+    <!-- <hr/> -->
+
+    <script>
+      const margin = {top: 20, right: 20, bottom: 30, left: 60};
+      let chartData;
+      let nearFluidVitals;
+      let chart;
+      const timeWindowMinutes = 10;
+
+      /*
+      const filenames = ['10060.json', '10095.json', '101213.json', '101466.json', '10153.json', '100629.json', '101123.json', '101242.json', '101484.json', '102403.json', '100661.json', '101189.json', '101365.json', '1015.json', '10275.json', '10069.json', '101207.json', '10145.json', '101521.json'];
+
+      for (i in filenames) { filenames[i] = 'data/' + filenames[i]; };
+
+      
+      readFilesFromNames(filenames, (fileData) => {
+        chartData = fileData;
+        console.log(chartData);
+
+        // for each fluid, get values in window of time around fluid time
+        if (chartData) {
+          extractData();
+          populateFluidGroupSelectOptions(); 
+        }
+      });
+      */
+
+      const populateFluidGroupSelectOptions = () => {
+        const groupSelect = document.getElementById('fluidGroupSelect');
+        for (i in groupSelect.options) { 
+          groupSelect.remove(i); 
+        }
+        const fluidGroupSet = new Set();
+        chartData.forEach(caseData => {
+          caseData.fluids.forEach(fluid => {
+            fluidGroupSet.add(fluid.group);
+          });
+        });
+        let fluidGroups = [...fluidGroupSet];
+
+        fluidGroups.sort(d3.ascending);
+        groupSelect.options[0] = new Option('Select Fluid Group', 0);
+        groupSelect.value = 0;
+        fluidGroups.forEach(fluidGroup => {
+          groupSelect.options[groupSelect.options.length] = new Option(fluidGroup);
+        });
+        fluidGroupSelected();
+      }
+
+      const fluidGroupSelected = () => {
+        const groupSelect = document.getElementById('fluidGroupSelect');
+        const nameSelect = document.getElementById('fluidNameSelect');
+
+        const selectedGroup = groupSelect.options[groupSelect.selectedIndex].text;
+
+        for (i in nameSelect.options) {
+          nameSelect.remove(i);
+        }
+
+        nameSelect.options[0] = new Option('Select Fluid Name', 0);
+        nameSelect.value = 0;
+
+        if (selectedGroup != 'Select Fluid Group') {
+          const fluidNameSet = new Set();
+          chartData.forEach(caseData => {
+            caseData.fluids.forEach(fluid => {
+              if (fluid.group === selectedGroup) {
+                fluidNameSet.add(fluid.name);
+              }
+            });
+          });
+          let fluidNames = [...fluidNameSet];
+          fluidNames.sort(d3.ascending);
+          fluidNames.forEach(fluidName => {
+            nameSelect.options[nameSelect.options.length] = new Option(fluidName);
+          });
+        }
+        removeCharts();
+      }
+
+      const fluidNameSelected = () => {
+        removeCharts();
+        createCharts();
+      }
+
+      const removeCharts = () => {
+        delete chartData;
+        delete nearFluidVitals;
+        d3.select('#charts').selectAll("*").remove();
+      }
+
+      const binSizeRangeChanged = () => {
+        const binSize = document.getElementById('binSizeRange').value;
+        const binSizeRangeText = document.getElementById('binSizeRangeText');
+        binSizeRangeText.innerText = new String(binSize);
+        removeChart();
+        createChart();
+      }
+
+      const loadFiles = () => {
+        const files = document.getElementById('fileInput').files;
+        if (files) {
+          // console.log(files);
+          readFiles(files, (fileData) => {
+            chartData = fileData;
+            if (chartData) {
+              console.log(chartData);
+              extractData();
+              populateFluidGroupSelectOptions(); 
+            }
+            // removeChart();
+            // createChart();
+          })
+        }
+      };
+
+      const extractData = () => {
+        // for each fluid, get values in window of time around fluid time
+        if (chartData) {
+          nearFluidVitals = [];
+          chartData.forEach(chartDatum => {
+            chartDatum.fluids.forEach(fluidNode => {
+              // console.log(fluidNode);
+              // console.log(`********** ${fluidNode.group} -- ${fluidNode.name}`);
+              fluidNode.nearVitalValues = [];
+              const timeExtent = [d3.timeMinute.offset(fluidNode.time, -timeWindowMinutes), d3.timeMinute.offset(fluidNode.time, timeWindowMinutes)];
+              // console.log(`${timeExtent[0]} - ${fluidNode.time} - ${timeExtent[1]}`);
+
+              // cycle through the vitals and capture values in time extent range
+              chartDatum.vitals.forEach(vitalNode => {
+                let nearValues = vitalNode.values.filter(v => (v.time >= timeExtent[0] && v.time <= timeExtent[1]));
+                // console.log(`${vitalNode.group} -- ${vitalNode.name}`);
+                // console.log(nearValues);
+                if (nearValues.length > 0) {
+                  // calculate elapsed time since event
+                  nearValues.map( v => {
+                    v.minutesSinceEvent = d3.timeMinute.count(fluidNode.time, v.time)
+                  });
+                  
+                  let nearValuesFluid = nearFluidVitals.find(d => (d.fgroup === fluidNode.group && d.fname === fluidNode.name));
+                  if (!nearValuesFluid) {
+                    nearValuesFluid = {
+                      fgroup: fluidNode.group,
+                      fname: fluidNode.name,
+                      vitals: [],
+                    };
+                    nearFluidVitals.push(nearValuesFluid);
+                  }
+
+                  let nearValuesVital = nearValuesFluid.vitals.find(d => (d.vgroup === vitalNode.group && d.vname === vitalNode.name));
+                  if (!nearValuesVital) {
+                    nearValuesVital = {
+                      vgroup: vitalNode.group,
+                      vname: vitalNode.name,
+                      values: [],
+                      numDosagesSampled: 0,
+                    };
+                    nearValuesFluid.vitals.push(nearValuesVital);
+                  }
+                  nearValuesVital.values = nearValuesVital.values.concat(nearValues);
+                  nearValuesVital.numDosagesSampled = nearValuesVital.numDosagesSampled + 1;
+                }
+              });
+              // chartDatum.vitals.forEach(vitalNode => {
+              //   let nearValues = vitalNode.values.filter(v => (v.time >= timeExtent[0] && v.time <= timeExtent[1]));
+              //   if (nearValues.length > 0) {
+              //     nearValues.map(v => v.minutesSinceEvent = d3.timeMinute.count(fluidNode.time, v.time));
+              //     // console.log(nearValues);
+              //     fluidNode.nearVitalValues.push({
+              //       group: vitalNode.group,
+              //       name: vitalNode.name,
+              //       values: nearValues,
+              //     });
+
+              //     let nearValuesFluid = nearFluidVitals.find(d => (d.fgroup === fluidNode.group && d.fname === fluidNode.name));
+              //     if (!nearValuesFluid) {
+              //       nearValuesFluid = {
+              //         fgroup: fluidNode.group, 
+              //         fname: fluidNode.name, 
+              //         vitals: [],
+              //       };
+              //       nearFluidVitals.push(nearValuesFluid);
+              //     }
+              //     let nearValuesVital = nearValuesFluid.vitals.find(d => (d.vgroup === vitalNode.group && d.vname === vitalNode.name));
+              //     if (!nearValuesVital) {
+              //       nearValuesVital = {
+              //         vgroup: vitalNode.group, 
+              //         vname: vitalNode.name, 
+              //         values: [],
+              //         caseCount: 0,
+              //       };
+              //       nearValuesFluid.vitals.push(nearValuesVital);
+              //     }
+              //     nearValuesVital.values = nearValuesVital.values.concat(nearValues);
+              //     nearValuesVital.caseCount = nearValuesVital.caseCount + 1;
+              //     console.log(`${vitalNode.group} : ${vitalNode.name} added values`);
+              //   }
+              // });
+            });
+          });
+          console.log(nearFluidVitals);         
+
+          // construct bins for fluid / vital near values
+          nearFluidVitals.forEach(fnode => {
+            fnode.vitals.forEach(vnode => {
+              // console.log(vnode.values);
+              vnode.bins = d3.histogram()
+                .value(d => d.minutesSinceEvent)
+                .domain([-timeWindowMinutes, timeWindowMinutes])
+                .thresholds((timeWindowMinutes * 2) + 1)
+                (vnode.values);
+              // console.log(vnode.bins);
+
+              // calculate summary info for bins
+              
+              vnode.bins.forEach(bin => {
+                bin.mean = d3.mean(bin, d => d.value);
+                bin.stdev = d3.deviation(bin, d => d.value);
+              });
+            });
+          });
+        }
+
+        // return nearFluidVitals;
+      };
+
+
+      const createCharts = () => {
+        if (nearFluidVitals) {
+          const groupSelect = document.getElementById('fluidGroupSelect');
+          const nameSelect = document.getElementById('fluidNameSelect');
+          const selectedFluidGroup = groupSelect.options[groupSelect.selectedIndex].text;
+          const selectedFluidName = nameSelect.options[nameSelect.selectedIndex].text;
+          
+          let chartWidth = document.getElementById('charts').clientWidth;
+          let chartHeight = 200;
+          
+          nearFluidVitals.forEach(fluidRecord => {
+            if (fluidRecord.fgroup === selectedFluidGroup && 
+                fluidRecord.fname === selectedFluidName) {
+              fluidRecord.vitals.forEach(vitalRecord => {
+
+                  let plotData = vitalRecord.bins.map(d => {
+                    return {
+                      minutesSinceEvent: d.x0,
+                      mean: d.mean,
+                      innerRangeMin: d.mean - d.stdev,
+                      innerRangeMax: d.mean + d.stdev,
+                    }
+                  });
+
+                  // filter out undefined values
+                  plotData = plotData.filter(d => !isNaN(d.mean) && !isNaN(d.innerRangeMax) && !isNaN(d.innerRangeMin));
+
+                  let zeroData = plotData.filter(d => d.mean === 0);
+                  // console.log(vitalRecord);
+                  // console.log(plotData);
+
+                  if (plotData.length > 1 && (zeroData.length != plotData.length)) {
+                    let timeExtent = [-10, 10];
+                    let chart = eventOffsetLineChart()
+                      .titleText(`${vitalRecord.vgroup}  |  ${vitalRecord.vname}  (Dosages Sampled: ${vitalRecord.numDosagesSampled})`)
+                      .margin(margin)
+                      .dateExtent(timeExtent)
+                      .width(chartWidth)
+                      .height(chartHeight)
+                      .zoomWithWheel(false)
+                      .showPoints(true)
+                      .showLine(true)
+                      // .curveFunction(d3.curveStepAfter)
+                      .dateValue((d) => d.minutesSinceEvent)
+                      .yValue((d) => d.mean)
+                      .lowValue(d => d.innerRangeMin)
+                      .highValue(d => d.innerRangeMax);
+                    d3.select('#charts').call(chart, plotData);
+                  }
+              });
+            }
+          });
+        }
+      };
+    </script>
+  </body>
+</html>
