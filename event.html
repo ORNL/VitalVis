@@ -31,11 +31,11 @@
         <label for="fileInput">Files: </label>
         <input type="file" id="fileInput" onchange="loadFiles()" multiple><br/><br/>
 
-        <label for="fluidGroupSelect">Fluid Group: </label>
-        <select id="fluidGroupSelect" onChange="fluidGroupSelected()"></select><br/><br/>
+        <label for="eventGroupSelect">Event Group: </label>
+        <select id="eventGroupSelect" onChange="eventGroupSelected()"></select><br/><br/>
 
-        <label for="fluidNameSelect">Fluid Name:</label>
-        <select id="fluidNameSelect" onChange="fluidNameSelected()"></select><br/><br/>
+        <label for="eventNameSelect">Event Name:</label>
+        <select id="eventNameSelect" onChange="eventNameSelected()"></select><br/><br/>
 
         <!-- <label for="binSizeRange">Bin Size (in minutes): </label><input type="range" min="1" max="15" value="1" class="slider" id="binSizeRange" onchange="binSizeRangeChanged()">
         <span id="binSizeRangeText">1</span><br/><br/>
@@ -56,7 +56,7 @@
     <script>
       const margin = {top: 20, right: 20, bottom: 30, left: 60};
       let chartData;
-      let nearFluidVitals;
+      let nearEventVitals;
       let chart;
       const timeWindowMinutes = 10;
 
@@ -78,31 +78,32 @@
       });
       */
 
-      const populateFluidGroupSelectOptions = () => {
-        const groupSelect = document.getElementById('fluidGroupSelect');
+      const populateEventGroupSelectOptions = () => {
+        const groupSelect = document.getElementById('eventGroupSelect');
         for (i in groupSelect.options) { 
           groupSelect.remove(i); 
         }
-        const fluidGroupSet = new Set();
-        chartData.forEach(caseData => {
-          caseData.fluids.forEach(fluid => {
-            fluidGroupSet.add(fluid.group);
-          });
-        });
-        let fluidGroups = [...fluidGroupSet];
+        // const fluidGroupSet = new Set();
+        // chartData.forEach(caseData => {
+        //   caseData.fluids.forEach(fluid => {
+        //     fluidGroupSet.add(fluid.group);
+        //   });
+        // });
+        let eventGroups = [...new Set(nearEventVitals.map(d => d.egroup))];
+        // let fluidGroups = [...fluidGroupSet];
 
-        fluidGroups.sort(d3.ascending);
-        groupSelect.options[0] = new Option('Select Fluid Group', 0);
+        eventGroups.sort(d3.ascending);
+        groupSelect.options[0] = new Option('Select Group', 0);
         groupSelect.value = 0;
-        fluidGroups.forEach(fluidGroup => {
-          groupSelect.options[groupSelect.options.length] = new Option(fluidGroup);
+        eventGroups.forEach(eventGroup => {
+          groupSelect.options[groupSelect.options.length] = new Option(eventGroup);
         });
-        fluidGroupSelected();
+        eventGroupSelected();
       }
 
-      const fluidGroupSelected = () => {
-        const groupSelect = document.getElementById('fluidGroupSelect');
-        const nameSelect = document.getElementById('fluidNameSelect');
+      const eventGroupSelected = () => {
+        const groupSelect = document.getElementById('eventGroupSelect');
+        const nameSelect = document.getElementById('eventNameSelect');
 
         const selectedGroup = groupSelect.options[groupSelect.selectedIndex].text;
 
@@ -110,35 +111,36 @@
           nameSelect.remove(i);
         }
 
-        nameSelect.options[0] = new Option('Select Fluid Name', 0);
+        nameSelect.options[0] = new Option('Select Name', 0);
         nameSelect.value = 0;
 
-        if (selectedGroup != 'Select Fluid Group') {
-          const fluidNameSet = new Set();
-          chartData.forEach(caseData => {
-            caseData.fluids.forEach(fluid => {
-              if (fluid.group === selectedGroup) {
-                fluidNameSet.add(fluid.name);
-              }
-            });
-          });
-          let fluidNames = [...fluidNameSet];
-          fluidNames.sort(d3.ascending);
-          fluidNames.forEach(fluidName => {
-            nameSelect.options[nameSelect.options.length] = new Option(fluidName);
+        if (selectedGroup != 'Select Group') {
+          // const fluidNameSet = new Set();
+          // chartData.forEach(caseData => {
+          //   caseData.fluids.forEach(fluid => {
+          //     if (fluid.group === selectedGroup) {
+          //       fluidNameSet.add(fluid.name);
+          //     }
+          //   });
+          // });
+          // let fluidNames = [...fluidNameSet];
+          let eventNames = [...new Set(nearEventVitals.filter(d => d.egroup === selectedGroup).map(d => d.ename))];
+          eventNames.sort(d3.ascending);
+          eventNames.forEach(eventName => {
+            nameSelect.options[nameSelect.options.length] = new Option(eventName);
           });
         }
         removeCharts();
       }
 
-      const fluidNameSelected = () => {
+      const eventNameSelected = () => {
         removeCharts();
         createCharts();
       }
 
       const removeCharts = () => {
         delete chartData;
-        delete nearFluidVitals;
+        delete nearEventVitals;
         d3.select('#charts').selectAll("*").remove();
       }
 
@@ -159,7 +161,7 @@
             if (chartData) {
               console.log(chartData);
               extractData();
-              populateFluidGroupSelectOptions(); 
+              populateEventGroupSelectOptions(); 
             }
             // removeChart();
             // createChart();
@@ -170,99 +172,93 @@
       const extractData = () => {
         // for each fluid, get values in window of time around fluid time
         if (chartData) {
-          nearFluidVitals = [];
+          nearEventVitals = [];
           chartData.forEach(chartDatum => {
             chartDatum.fluids.forEach(fluidNode => {
-              // console.log(fluidNode);
-              // console.log(`********** ${fluidNode.group} -- ${fluidNode.name}`);
-              fluidNode.nearVitalValues = [];
               const timeExtent = [d3.timeMinute.offset(fluidNode.time, -timeWindowMinutes), d3.timeMinute.offset(fluidNode.time, timeWindowMinutes)];
-              // console.log(`${timeExtent[0]} - ${fluidNode.time} - ${timeExtent[1]}`);
 
               // cycle through the vitals and capture values in time extent range
               chartDatum.vitals.forEach(vitalNode => {
                 let nearValues = vitalNode.values.filter(v => (v.time >= timeExtent[0] && v.time <= timeExtent[1]));
-                // console.log(`${vitalNode.group} -- ${vitalNode.name}`);
-                // console.log(nearValues);
                 if (nearValues.length > 0) {
                   // calculate elapsed time since event
                   nearValues.map( v => {
                     v.minutesSinceEvent = d3.timeMinute.count(fluidNode.time, v.time)
                   });
                   
-                  let nearValuesFluid = nearFluidVitals.find(d => (d.fgroup === fluidNode.group && d.fname === fluidNode.name));
-                  if (!nearValuesFluid) {
-                    nearValuesFluid = {
-                      fgroup: fluidNode.group,
-                      fname: fluidNode.name,
+                  let nearEventVitalsEvent = nearEventVitals.find(d => (d.egroup === fluidNode.group && d.ename === fluidNode.name));
+                  if (!nearEventVitalsEvent) {
+                    nearEventVitalsEvent = {
+                      egroup: fluidNode.group,
+                      ename: fluidNode.name,
                       vitals: [],
                     };
-                    nearFluidVitals.push(nearValuesFluid);
+                    nearEventVitals.push(nearEventVitalsEvent);
                   }
 
-                  let nearValuesVital = nearValuesFluid.vitals.find(d => (d.vgroup === vitalNode.group && d.vname === vitalNode.name));
-                  if (!nearValuesVital) {
-                    nearValuesVital = {
+                  let nearEventVitalsVital = nearEventVitalsEvent.vitals.find(d => (d.vgroup === vitalNode.group && d.vname === vitalNode.name));
+                  if (!nearEventVitalsVital) {
+                    nearEventVitalsVital = {
                       vgroup: vitalNode.group,
                       vname: vitalNode.name,
                       values: [],
                       numDosagesSampled: 0,
                     };
-                    nearValuesFluid.vitals.push(nearValuesVital);
+                    nearEventVitalsEvent.vitals.push(nearEventVitalsVital);
                   }
-                  nearValuesVital.values = nearValuesVital.values.concat(nearValues);
-                  nearValuesVital.numDosagesSampled = nearValuesVital.numDosagesSampled + 1;
+                  nearEventVitalsVital.values = nearEventVitalsVital.values.concat(nearValues);
+                  nearEventVitalsVital.numDosagesSampled = nearEventVitalsVital.numDosagesSampled + 1;
                 }
               });
-              // chartDatum.vitals.forEach(vitalNode => {
-              //   let nearValues = vitalNode.values.filter(v => (v.time >= timeExtent[0] && v.time <= timeExtent[1]));
-              //   if (nearValues.length > 0) {
-              //     nearValues.map(v => v.minutesSinceEvent = d3.timeMinute.count(fluidNode.time, v.time));
-              //     // console.log(nearValues);
-              //     fluidNode.nearVitalValues.push({
-              //       group: vitalNode.group,
-              //       name: vitalNode.name,
-              //       values: nearValues,
-              //     });
+            });
+            chartDatum.drugs.forEach(drugNode => {
+              const timeExtent = [d3.timeMinute.offset(drugNode.time, -timeWindowMinutes), d3.timeMinute.offset(drugNode.time, timeWindowMinutes)];
 
-              //     let nearValuesFluid = nearFluidVitals.find(d => (d.fgroup === fluidNode.group && d.fname === fluidNode.name));
-              //     if (!nearValuesFluid) {
-              //       nearValuesFluid = {
-              //         fgroup: fluidNode.group, 
-              //         fname: fluidNode.name, 
-              //         vitals: [],
-              //       };
-              //       nearFluidVitals.push(nearValuesFluid);
-              //     }
-              //     let nearValuesVital = nearValuesFluid.vitals.find(d => (d.vgroup === vitalNode.group && d.vname === vitalNode.name));
-              //     if (!nearValuesVital) {
-              //       nearValuesVital = {
-              //         vgroup: vitalNode.group, 
-              //         vname: vitalNode.name, 
-              //         values: [],
-              //         caseCount: 0,
-              //       };
-              //       nearValuesFluid.vitals.push(nearValuesVital);
-              //     }
-              //     nearValuesVital.values = nearValuesVital.values.concat(nearValues);
-              //     nearValuesVital.caseCount = nearValuesVital.caseCount + 1;
-              //     console.log(`${vitalNode.group} : ${vitalNode.name} added values`);
-              //   }
-              // });
+              // cycle through the vitals and capture values in time extent range
+              chartDatum.vitals.forEach(vitalNode => {
+                let nearValues = vitalNode.values.filter(v => (v.time >= timeExtent[0] && v.time <= timeExtent[1]));
+                if (nearValues.length > 0) {
+                  // calculate elapsed time since event
+                  nearValues.map( v => {
+                    v.minutesSinceEvent = d3.timeMinute.count(drugNode.time, v.time)
+                  });
+                  
+                  let nearEventVitalsEvent = nearEventVitals.find(d => (d.egroup === drugNode.group && d.ename === drugNode.name));
+                  if (!nearEventVitalsEvent) {
+                    nearEventVitalsEvent = {
+                      egroup: drugNode.group,
+                      ename: drugNode.name,
+                      vitals: [],
+                    };
+                    nearEventVitals.push(nearEventVitalsEvent);
+                  }
+
+                  let nearEventVitalsVital = nearEventVitalsEvent.vitals.find(d => (d.vgroup === vitalNode.group && d.vname === vitalNode.name));
+                  if (!nearEventVitalsVital) {
+                    nearEventVitalsVital = {
+                      vgroup: vitalNode.group,
+                      vname: vitalNode.name,
+                      values: [],
+                      numDosagesSampled: 0,
+                    };
+                    nearEventVitalsEvent.vitals.push(nearEventVitalsVital);
+                  }
+                  nearEventVitalsVital.values = nearEventVitalsVital.values.concat(nearValues);
+                  nearEventVitalsVital.numDosagesSampled = nearEventVitalsVital.numDosagesSampled + 1;
+                }
+              });
             });
           });
-          console.log(nearFluidVitals);         
+          console.log(nearEventVitals);         
 
           // construct bins for fluid / vital near values
-          nearFluidVitals.forEach(fnode => {
+          nearEventVitals.forEach(fnode => {
             fnode.vitals.forEach(vnode => {
-              // console.log(vnode.values);
               vnode.bins = d3.histogram()
                 .value(d => d.minutesSinceEvent)
                 .domain([-timeWindowMinutes, timeWindowMinutes])
                 .thresholds((timeWindowMinutes * 2) + 1)
                 (vnode.values);
-              // console.log(vnode.bins);
 
               // calculate summary info for bins
               
@@ -273,25 +269,23 @@
             });
           });
         }
-
-        // return nearFluidVitals;
       };
 
 
       const createCharts = () => {
-        if (nearFluidVitals) {
-          const groupSelect = document.getElementById('fluidGroupSelect');
-          const nameSelect = document.getElementById('fluidNameSelect');
-          const selectedFluidGroup = groupSelect.options[groupSelect.selectedIndex].text;
-          const selectedFluidName = nameSelect.options[nameSelect.selectedIndex].text;
+        if (nearEventVitals) {
+          const groupSelect = document.getElementById('eventGroupSelect');
+          const nameSelect = document.getElementById('eventNameSelect');
+          const selectedEventGroup = groupSelect.options[groupSelect.selectedIndex].text;
+          const selectedEventName = nameSelect.options[nameSelect.selectedIndex].text;
           
           let chartWidth = document.getElementById('charts').clientWidth;
           let chartHeight = 200;
           
-          nearFluidVitals.forEach(fluidRecord => {
-            if (fluidRecord.fgroup === selectedFluidGroup && 
-                fluidRecord.fname === selectedFluidName) {
-              fluidRecord.vitals.forEach(vitalRecord => {
+          nearEventVitals.forEach(eventRecord => {
+            if (eventRecord.egroup === selectedEventGroup && 
+              eventRecord.ename === selectedEventName) {
+                eventRecord.vitals.forEach(vitalRecord => {
 
                   let plotData = vitalRecord.bins.map(d => {
                     return {
