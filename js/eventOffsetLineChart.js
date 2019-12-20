@@ -134,9 +134,9 @@ var eventOffsetLineChart = function () {
           .attr("id", `clip_${chartID}`)
         .append("rect")
           .attr("x", 0)
-          .attr("y", -2)
+          .attr("y", -4)
           .attr("width", width)
-          .attr("height", height+2);
+          .attr("height", height+10);
 
       // console.log(dateExtent);
       // console.log(titleText);

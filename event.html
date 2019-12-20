@@ -37,6 +37,13 @@
         <label for="eventNameSelect">Event Name:</label>
         <select id="eventNameSelect" onChange="eventNameSelected()"></select><br/><br/>
 
+        <label for="sortSelect">Sort By:</label>
+        <select id="sortSelect" onChange="sortSelectChanged()">
+          <option >Name</option>
+          <option selected>Dosages Sampled</option>
+          <!-- <option>Variation</option> -->
+        </select><br/><br/>
+
         <!-- <label for="binSizeRange">Bin Size (in minutes): </label><input type="range" min="1" max="15" value="1" class="slider" id="binSizeRange" onchange="binSizeRangeChanged()">
         <span id="binSizeRangeText">1</span><br/><br/>
         <label for="opacityRange">Scatterplot Point Opacity: </label><input type="range" min="1" max="100" value="35" class="slider" id="opacityRange" onchange="opacityRangeChanged()">
@@ -56,6 +63,7 @@
     <script>
       const margin = {top: 20, right: 20, bottom: 30, left: 60};
       let chartData;
+      let summaryData;
       let nearEventVitals;
       let chart;
       const timeWindowMinutes = 10;
@@ -77,21 +85,41 @@
         }
       });
       */
+      const eventSummaryFiles = ["data/fluidsSummary.json", "data/drugsSummary.json"];
+      Promise.all(eventSummaryFiles.map(f => d3.json(f)))
+        .then(filesData => {
+          console.log(filesData);
+          summaryData = {};
+          filesData.forEach(data => {
+            d3.keys(data).forEach(key => {
+              summaryData[key] = data[key];
+            });
+          });
+          // summaryData = d3.merge(filesData[0], filesData[1]);
+          console.log(summaryData);
+          // summaryData = filesData[0].concat(filesData[1]);
+          populateEventGroupSelectOptions();
+        })
+        .catch(error => {
+          console.log(error);
+        });
+      // d3.json(fluidsSummaryFile)
+      //   .then((data) => {
+      //     console.log(data);
+      //     summaryData = data;
+      //     populateEventGroupSelectOptions();
+      //   })
+      //   .catch((error) => {
+      //     console.log(error);
+      //   });
 
       const populateEventGroupSelectOptions = () => {
         const groupSelect = document.getElementById('eventGroupSelect');
         for (i in groupSelect.options) { 
           groupSelect.remove(i); 
         }
-        // const fluidGroupSet = new Set();
-        // chartData.forEach(caseData => {
-        //   caseData.fluids.forEach(fluid => {
-        //     fluidGroupSet.add(fluid.group);
-        //   });
-        // });
-        let eventGroups = [...new Set(nearEventVitals.map(d => d.egroup))];
-        // let fluidGroups = [...fluidGroupSet];
 
+        let eventGroups = d3.keys(summaryData);
         eventGroups.sort(d3.ascending);
         groupSelect.options[0] = new Option('Select Group', 0);
         groupSelect.value = 0;
@@ -99,6 +127,17 @@
           groupSelect.options[groupSelect.options.length] = new Option(eventGroup);
         });
         eventGroupSelected();
+        
+        // let eventGroups = [...new Set(nearEventVitals.map(d => d.egroup))];
+        // // let fluidGroups = [...fluidGroupSet];
+
+        // eventGroups.sort(d3.ascending);
+        // groupSelect.options[0] = new Option('Select Group', 0);
+        // groupSelect.value = 0;
+        // eventGroups.forEach(eventGroup => {
+        //   groupSelect.options[groupSelect.options.length] = new Option(eventGroup);
+        // });
+        // eventGroupSelected();
       }
 
       const eventGroupSelected = () => {
@@ -115,16 +154,8 @@
         nameSelect.value = 0;
 
         if (selectedGroup != 'Select Group') {
-          // const fluidNameSet = new Set();
-          // chartData.forEach(caseData => {
-          //   caseData.fluids.forEach(fluid => {
-          //     if (fluid.group === selectedGroup) {
-          //       fluidNameSet.add(fluid.name);
-          //     }
-          //   });
-          // });
-          // let fluidNames = [...fluidNameSet];
-          let eventNames = [...new Set(nearEventVitals.filter(d => d.egroup === selectedGroup).map(d => d.ename))];
+          let eventNames = d3.keys(summaryData[selectedGroup]);
+          // let eventNames = [...new Set(nearEventVitals.filter(d => d.egroup === selectedGroup).map(d => d.ename))];
           eventNames.sort(d3.ascending);
           eventNames.forEach(eventName => {
             nameSelect.options[nameSelect.options.length] = new Option(eventName);
@@ -138,19 +169,24 @@
         createCharts();
       }
 
+      const sortSelectChanged = () => {
+        removeCharts();
+        createCharts();
+      }
+
       const removeCharts = () => {
         delete chartData;
         delete nearEventVitals;
         d3.select('#charts').selectAll("*").remove();
       }
 
-      const binSizeRangeChanged = () => {
-        const binSize = document.getElementById('binSizeRange').value;
-        const binSizeRangeText = document.getElementById('binSizeRangeText');
-        binSizeRangeText.innerText = new String(binSize);
-        removeChart();
-        createChart();
-      }
+      // const binSizeRangeChanged = () => {
+      //   const binSize = document.getElementById('binSizeRange').value;
+      //   const binSizeRangeText = document.getElementById('binSizeRangeText');
+      //   binSizeRangeText.innerText = new String(binSize);
+      //   removeChart();
+      //   createChart();
+      // }
 
       const loadFiles = () => {
         const files = document.getElementById('fileInput').files;
@@ -161,6 +197,7 @@
             if (chartData) {
               console.log(chartData);
               extractData();
+              summaryData = makeSummaryInfo(nearEventVitals);
               populateEventGroupSelectOptions(); 
             }
             // removeChart();
@@ -249,31 +286,187 @@
               });
             });
           });
-          console.log(nearEventVitals);         
+          // console.log(nearEventVitals);         
 
           // construct bins for fluid / vital near values
-          nearEventVitals.forEach(fnode => {
-            fnode.vitals.forEach(vnode => {
-              vnode.bins = d3.histogram()
-                .value(d => d.minutesSinceEvent)
-                .domain([-timeWindowMinutes, timeWindowMinutes])
-                .thresholds((timeWindowMinutes * 2) + 1)
-                (vnode.values);
+          // nearEventVitals.forEach(fnode => {
+          //   fnode.vitals.forEach(vnode => {
+          //     vnode.bins = d3.histogram()
+          //       .value(d => d.minutesSinceEvent)
+          //       .domain([-timeWindowMinutes, timeWindowMinutes])
+          //       .thresholds((timeWindowMinutes * 2) + 1)
+          //       (vnode.values);
 
-              // calculate summary info for bins
+          //     // calculate summary info for bins
               
-              vnode.bins.forEach(bin => {
-                bin.mean = d3.mean(bin, d => d.value);
-                bin.stdev = d3.deviation(bin, d => d.value);
-              });
-            });
-          });
+          //     vnode.bins.forEach(bin => {
+          //       bin.mean = d3.mean(bin, d => d.value);
+          //       bin.stdev = d3.deviation(bin, d => d.value);
+          //     });
+          //   });
+          // });
         }
       };
 
+      const makeSummaryInfo = (eventVitals) => {
+        let binnedEventVitals = {};
+
+        eventVitals.forEach(eventNode => {
+          let eventGroup = binnedEventVitals[eventNode.egroup];
+          if (!eventGroup) {
+            eventGroup = {};
+            binnedEventVitals[eventNode.egroup] = eventGroup;
+          }
+          
+          let eventName = eventGroup[eventNode.ename];
+          if (!eventName) {
+            eventName = {};
+            eventGroup[eventNode.ename] = eventName;
+          }
+
+          eventNode.vitals.forEach(vitalNode => {
+            let vitalGroup = eventName[vitalNode.vgroup];
+            if (!vitalGroup) {
+              vitalGroup = {};
+              eventName[vitalNode.vgroup] = vitalGroup;
+            }
+
+            let vitalName = vitalGroup[vitalNode.vname];
+            if (!vitalName) {
+              vitalName = [];
+              vitalGroup[vitalNode.vname] = vitalName;
+            }
+
+            let valueBins = d3.histogram()
+              .value(d => d.minutesSinceEvent)
+              .domain([-timeWindowMinutes, timeWindowMinutes])
+              .thresholds((timeWindowMinutes * 2) + 1)
+              (vitalNode.values);
+            
+            valueBins.forEach(bin => {
+              let sortedValues = bin.map(d => d.value).sort(d3.ascending);
+              vitalName.push({
+                minutesSinceEvent: (bin.x0 + bin.x1) / 2.,
+                mean: d3.mean(sortedValues),
+                stdev: d3.deviation(sortedValues),
+                median: d3.median(sortedValues),
+                q1: d3.quantile(sortedValues, 0.25),
+                q3: d3.quantile(sortedValues, 0.75),
+                min: sortedValues[0],
+                max: sortedValues[sortedValues.length - 1],
+                n: sortedValues.length,
+                dosagesSampled: vitalNode.numDosagesSampled,
+              });
+            });
+          });
+        });
+
+        return binnedEventVitals;
+      }
 
       const createCharts = () => {
+        if (summaryData) {
+          const groupSelect = document.getElementById('eventGroupSelect');
+          const nameSelect = document.getElementById('eventNameSelect');
+          const sortSelect = document.getElementById('sortSelect');
+          const selectedEventGroup = groupSelect.options[groupSelect.selectedIndex].text;
+          const selectedEventName = nameSelect.options[nameSelect.selectedIndex].text;
+          const selectedSortOption = sortSelect.options[sortSelect.selectedIndex].text;
+          
+          let chartWidth = document.getElementById('charts').clientWidth;
+          let chartHeight = 200;
+          
+          let vitalPlotData = [];
+          const vitalGroups = d3.keys(summaryData[selectedEventGroup][selectedEventName]);
+          vitalGroups.forEach(vitalGroup => {
+            const vitalNames = d3.keys(summaryData[selectedEventGroup][selectedEventName][vitalGroup]);
+            vitalNames.forEach(vitalName => {
+              // console.log(`${vitalGroup} : ${vitalName}`);
+              let plotData = summaryData[selectedEventGroup][selectedEventName][vitalGroup][vitalName].map(d => {
+                const iqr = d.q3 - d.q1;
+                return {
+                  minutesSinceEvent: d.minutesSinceEvent,
+                  typical: d.median,
+                  innerRangeMin: d.q1,
+                  innerRangeMax: d.q3,
+                  outerRangeMin: Math.max(d.min, d.q1 - iqr * 1.5),
+                  outerRangeMax: Math.min(d.max, d.q3 + iqr * 1.5),
+                  // rangeMin: d.mean - d.stdev,
+                  // rangeMax: d.mean + d.stdev,
+                  dosagesSampled: d.dosagesSampled,
+                }
+              });
+              // console.log(plotData);
+              // filter out undefined values
+              plotData = plotData.filter(d => !isNaN(d.typical) && !isNaN(d.innerRangeMax) && !isNaN(d.innerRangeMin));
+
+              let zeroData = plotData.filter(d => d.typical === 0);
+
+              if (plotData.length > 1 && (zeroData.length != plotData.length)) {
+                vitalPlotData.push({
+                  title: `${vitalGroup} : ${vitalName}  (Dosaged Sampled: ${plotData[0].dosagesSampled})`,
+                  dosagesSampled: plotData[0].dosagesSampled,
+                  data: plotData,
+                });
+              }
+              // if (plotData.length > 1 && (zeroData.length != plotData.length)) {
+              //   let timeExtent = [-10, 10];
+              //   let chart = eventOffsetLineChart()
+              //     .titleText(`${vitalGroup}  |  ${vitalName}  (Dosages Sampled: ${plotData[0].dosagesSampled})`)
+              //     .margin(margin)
+              //     .dateExtent(timeExtent)
+              //     .width(chartWidth)
+              //     .height(chartHeight)
+              //     .zoomWithWheel(false)
+              //     .showPoints(true)
+              //     .showLine(true)
+              //     // .curveFunction(d3.curveStepAfter)
+              //     .dateValue((d) => d.minutesSinceEvent)
+              //     .yValue((d) => d.typical)
+              //     .lowValue(d => d.innerRangeMin)
+              //     .highValue(d => d.innerRangeMax);
+              //   d3.select('#charts').call(chart, plotData);
+              // }
+            });
+          });
+
+          vitalPlotData.sort((a, b) => {
+            if (selectedSortOption === 'Name') {
+              if (a.title > b.title) {
+                return 1;
+              } else if (a.title < b.title) {
+                return -1;
+              } else {
+                return 0;
+              }
+            } else if (selectedSortOption === 'Dosages Sampled') {
+              return b.dosagesSampled - a.dosagesSampled;
+            }
+          });
+
+          const timeExtent = [-10, 10];
+          vitalPlotData.forEach(plotData => {
+            const chart = eventOffsetLineChart()
+              .titleText(plotData.title)
+              .margin(margin)
+              .dateExtent(timeExtent)
+              .width(chartWidth)
+              .height(chartHeight)
+              .zoomWithWheel(false)
+              .showPoints(true)
+              .showLine(true)
+              // .curveFunction(d3.curveStepAfter)
+              .dateValue((d) => d.minutesSinceEvent)
+              .yValue((d) => d.typical)
+              .lowValue(d => d.innerRangeMin)
+              .highValue(d => d.innerRangeMax);
+            d3.select('#charts').call(chart, plotData.data);
+          });
+        }
+
+        /*
         if (nearEventVitals) {
+          console.log(nearEventVitals);
           const groupSelect = document.getElementById('eventGroupSelect');
           const nameSelect = document.getElementById('eventNameSelect');
           const selectedEventGroup = groupSelect.options[groupSelect.selectedIndex].text;
@@ -325,6 +518,7 @@
             }
           });
         }
+        */
       };
     </script>
   </body>
