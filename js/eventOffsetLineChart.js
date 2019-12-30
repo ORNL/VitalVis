@@ -1,6 +1,6 @@
 var eventOffsetLineChart = function () {
   let margin = {
-      top: 20,
+      top: 24,
       right: 20,
       bottom: 30,
       left: 60
@@ -17,14 +17,21 @@ var eventOffsetLineChart = function () {
     },
     curveFunction = d3.curveMonotoneX,
     zoomedHandler,
-    highValue,
-    lowValue,
+    outerRangeMaxValue,
+    outerRangeMinValue,
+    innerRangeMaxValue,
+    innerRangeMinValue,
+    // highValue,
+    // lowValue,
     showPoints = false,
     showLine = true,
     pointColor = d3.rgb(30,30,30,0.4),
-    rangeFillColor = "#c6dbef",
+    outerRangeFill = "#c6dbef",
+    innerRangeFill = "#9ecae1",
     panBuffer = 80,
-    zoomWithWheel = true;
+    zoomWithWheel = true,
+    events,
+    eventText;
 
   let chartData;
   let chartDiv;
@@ -36,63 +43,53 @@ var eventOffsetLineChart = function () {
   let yAxis;
   let chartID;
 
-  let line = d3.line()
-    .curve(curveFunction)
-    .x(function(d) { return xScale(dateValue(d)); })
-    .y(function(d) { return yScale(yValue(d)); });
 
-  let rangeArea = d3.area()
-    .curve(curveFunction)
-    .x(function(d) { return xScale(dateValue(d)); })
-    .y0(function(d) { return yScale(lowValue(d)); })
-    .y1(function(d) { return yScale(highValue(d)); });
+  // const zoom = d3.zoom()
+  //   .scaleExtent([1, Infinity])
+  //   .translateExtent([[-panBuffer,-panBuffer], [width+panBuffer, height+panBuffer]])
+  //   .extent([[0,0], [width, height]])
+  //   .on("zoom", zoomed);
 
-  const zoom = d3.zoom()
-    .scaleExtent([1, Infinity])
-    .translateExtent([[-panBuffer,-panBuffer], [width+panBuffer, height+panBuffer]])
-    .extent([[0,0], [width, height]])
-    .on("zoom", zoomed);
+  // function zoomed() {
+  //   var t = d3.event.transform;
+  //   var xt = t.rescaleX(xScale);
+  //   // var yt = yScale;
 
-  function zoomed() {
-    var t = d3.event.transform;
-    var xt = t.rescaleX(xScale);
-    // var yt = yScale;
+  //   if (showLine) {
+  //     svg.selectAll(".line")
+  //       .attr("d", d3.line()
+  //         .curve(curveFunction)
+  //         .x(function(d) { return xt(dateValue(d)); })
+  //         .y(function(d) { return yScale(yValue(d)); }));
+  //   }
 
-    if (showLine) {
-      svg.selectAll(".line")
-        .attr("d", d3.line()
-          .curve(curveFunction)
-          .x(function(d) { return xt(dateValue(d)); })
-          .y(function(d) { return yScale(yValue(d)); }));
-    }
+  //   if (innerRangeMaxValue && innerRangeMinValue) {
+  //     svg.selectAll(".range")
+  //       .attr("d", d3.area()
+  //         .curve(curveFunction)
+  //         .x(function(d) { return xt(dateValue(d)); })
+  //         .y0(function(d) { return yScale(innerRangeMinValue(d)); })
+  //         .y1(function(d) { return yScale(innerRangeMaxValue(d)); })
+  //       );
+  //   }
 
-    if (lowValue && highValue) {
-      svg.selectAll(".range")
-        .attr("d", d3.area()
-          .curve(curveFunction)
-          .x(function(d) { return xt(dateValue(d)); })
-          .y0(function(d) { return yScale(lowValue(d)); })
-          .y1(function(d) { return yScale(highValue(d)); })
-        );
-    }
+  //   if (showPoints) {
+  //     svg.selectAll("circle")
+  //       .attr("cx", function(d) { return xt(dateValue(d)); })
+  //       .attr("cy", function(d) { return yScale(yValue(d)); });
+  //   }
 
-    if (showPoints) {
-      svg.selectAll("circle")
-        .attr("cx", function(d) { return xt(dateValue(d)); })
-        .attr("cy", function(d) { return yScale(yValue(d)); });
-    }
+  //   g.select(".axis--x").call(xAxis.scale(xt));
+  //   // g.select(".axis--y").call(yAxis.scale(yt));
+  //   g.select(".domain").remove();
 
-    g.select(".axis--x").call(xAxis.scale(xt));
-    // g.select(".axis--y").call(yAxis.scale(yt));
-    g.select(".domain").remove();
-
-    if (zoomedHandler) {
-      if (d3.event.sourceEvent && d3.event.sourceEvent.type === 'zoom') {
-        return;
-      }
-      zoomedHandler(t);
-    }
-  }
+  //   if (zoomedHandler) {
+  //     if (d3.event.sourceEvent && d3.event.sourceEvent.type === 'zoom') {
+  //       return;
+  //     }
+  //     zoomedHandler(t);
+  //   }
+  // }
 
   const ID = function () {
     // Math.random should be unique because of its seeding algorithm.
@@ -126,17 +123,55 @@ var eventOffsetLineChart = function () {
           .attr('width', width + margin.left + margin.right)
           .attr('height', height + margin.top + margin.bottom);
       }
+
+      let line = d3.line()
+        .curve(curveFunction)
+        .x(function(d) { return xScale(dateValue(d)); })
+        .y(function(d) { return yScale(yValue(d)); });
+
+      let innerRangeArea = d3.area()
+        .curve(curveFunction)
+        .x(function(d) { return xScale(dateValue(d)); })
+        .y0(function(d) { return yScale(innerRangeMinValue(d)); })
+        .y1(function(d) { return yScale(innerRangeMaxValue(d)); });
+
+      let innerRangeMinLine = d3.line()
+        .curve(curveFunction)
+        .x(function(d) { return xScale(dateValue(d)); })
+        .y(function(d) { return yScale(innerRangeMinValue(d)); });
+
+      let innerRangeMaxLine = d3.line()
+        .curve(curveFunction)
+        .x(function(d) { return xScale(dateValue(d)); })
+        .y(function(d) { return yScale(innerRangeMaxValue(d)); });
+
+      let outerRangeArea = d3.area()
+        .curve(curveFunction)
+        .x(function(d) { return xScale(dateValue(d)); })
+        .y0(function(d) { return yScale(outerRangeMinValue(d)); })
+        .y1(function(d) { return yScale(outerRangeMaxValue(d)); });
+
+      let outerRangeMinLine = d3.line()
+        .curve(curveFunction)
+        .x(function(d) { return xScale(dateValue(d)); })
+        .y(function(d) { return yScale(outerRangeMinValue(d)); });
+
+      let outerRangeMaxLine = d3.line()
+        .curve(curveFunction)
+        .x(function(d) { return xScale(dateValue(d)); })
+        .y(function(d) { return yScale(outerRangeMaxValue(d)); });
+        
       
       g = svg.append('g')
         .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
-      g.append("clipPath")
-          .attr("id", `clip_${chartID}`)
-        .append("rect")
-          .attr("x", 0)
-          .attr("y", -4)
-          .attr("width", width)
-          .attr("height", height+10);
+      // g.append("clipPath")
+      //     .attr("id", `clip_${chartID}`)
+      //   .append("rect")
+      //     .attr("x", 0)
+      //     .attr("y", -4)
+      //     .attr("width", width)
+      //     .attr("height", height+10);
 
       // console.log(dateExtent);
       // console.log(titleText);
@@ -151,52 +186,161 @@ var eventOffsetLineChart = function () {
       //   .nice();
       // // console.log(dateExtent);
 
-      let yExtent;
-      if (lowValue && highValue) {
-        let min = d3.min(chartData, (d) => { return lowValue(d) < yValue(d) ? lowValue(d) : yValue(d); });
-        let max = d3.max(chartData, (d) => { return highValue(d) > yValue(d) ? highValue(d) : yValue(d); });
-        yExtent = [min, max];
-      } else {
-        yExtent = d3.extent(chartData, yValue);  
-      }
+      let yExtent = [];
+      yExtent[0] = d3.min(chartData, d => {
+        let minValue = yValue(d);
+        if (outerRangeMinValue) { minValue = outerRangeMinValue(d) < minValue ? outerRangeMinValue(d) : minValue; }
+        if (innerRangeMinValue) { minValue = innerRangeMinValue(d) < minValue ? innerRangeMinValue(d) : minValue; }
+        return minValue;
+        // let values = [yValue(d)];
+        // if (outerRangeMinValue) { values.push(outerRangeMinValue(d)); }
+        // if (innerRangeMinValue) { values.push(innerRangeMinValue(d)); }
+        // return Math.min(values);
+      });
+
+      yExtent[1] = d3.max(chartData, d => {
+        let maxValue = yValue(d);
+        if (outerRangeMinValue) { maxValue = outerRangeMaxValue(d) > maxValue ? outerRangeMaxValue(d) : maxValue; }
+        if (innerRangeMinValue) { maxValue = innerRangeMaxValue(d) > maxValue ? innerRangeMaxValue(d) : maxValue; }
+        return maxValue;
+      });
+      // let yExtent;
+      // if (lowValue && highValue) {
+      //   let min = d3.min(chartData, (d) => { return lowValue(d) < yValue(d) ? lowValue(d) : yValue(d); });
+      //   let max = d3.max(chartData, (d) => { return highValue(d) > yValue(d) ? highValue(d) : yValue(d); });
+      //   yExtent = [min, max];
+      // } else {
+      //   yExtent = d3.extent(chartData, yValue);  
+      // }
       // yExtent = d3.extent(chartData, yValue);
       // if (yExtent[0] > 0) {
       //   yExtent[0] = 0;
       // }
       // console.log(yExtent);
+
       yScale = d3.scaleLinear()
         .domain(yExtent)
         .range([height, 0])
         .nice();
 
-      if (lowValue && highValue) {
+      if (outerRangeMinValue && outerRangeMaxValue) {
         g.append("path")
           .datum(chartData)
         .attr("class", "range")
-          .attr("fill", rangeFillColor)
-          .attr("d", rangeArea)
-          .attr("clip-path", `url(#clip_${chartID})`);
+          .attr("fill", outerRangeFill)
+          .attr("d", outerRangeArea);
+          // .attr("clip-path", `url(#clip_${chartID})`);
           // .attr("clip-path", "url(#clip)");
+
+        g.append("path")
+          .datum(chartData)
+        .attr("class", "line")
+          .attr("d", outerRangeMinLine)
+          .attr("fill", "none")
+          .attr("stroke", "darkgray")
+          .attr("stroke-linejoin", "round")
+          .attr("stroke-linecap", "round")
+          .attr("stroke-width", "1px");
+
+        g.append("path")
+          .datum(chartData)
+        .attr("class", "line")
+          .attr("d", outerRangeMaxLine)
+          .attr("fill", "none")
+          .attr("stroke", "darkgray")
+          .attr("stroke-linejoin", "round")
+          .attr("stroke-linecap", "round")
+          .attr("stroke-width", "1px");
       }
+
+      if (innerRangeMinValue && innerRangeMaxValue) {
+        g.append("path")
+          .datum(chartData)
+        .attr("class", "range")
+          .attr("fill", innerRangeFill)
+          .attr("d", innerRangeArea);
+          // .attr("clip-path", `url(#clip_${chartID})`);
+          // .attr("clip-path", "url(#clip)");
+
+        g.append("path")
+          .datum(chartData)
+        .attr("class", "line")
+          .attr("d", innerRangeMinLine)
+          .attr("fill", "none")
+          .attr("stroke", "darkgray")
+          .attr("stroke-linejoin", "round")
+          .attr("stroke-linecap", "round")
+          .attr("stroke-width", "1px");
+
+        g.append("path")
+          .datum(chartData)
+        .attr("class", "line")
+          .attr("d", innerRangeMaxLine)
+          .attr("fill", "none")
+          .attr("stroke", "darkgray")
+          .attr("stroke-linejoin", "round")
+          .attr("stroke-linecap", "round")
+          .attr("stroke-width", "1px");
+      }
+      
+      if (events) {
+        let eventColorScale = d3.scaleSequential(d3.interpolateOrRd).domain(d3.extent(events, d => d.length));
+        g.selectAll("eventBins")
+          .data(events)
+        .enter().append("rect")
+          // .attr("fill", "#1E8449")
+          .attr("fill", d => d.length > 0 ? eventColorScale(d.length) : "lightgray")
+          .attr("stroke", "darkgray")
+          .attr("x", d => xScale(d.x0))
+          .attr("width", d => xScale(d.x1) - xScale(d.x0))
+          .attr("y", -13)
+          .attr("height", 8)
+          .append("title")
+            .text(d => `Secondary Event Count: ${d.length}`);
+
+        // console.log('will add events');
+        // console.log(events);
+        // g.append("rect")
+        //   .attr("x", 0)
+        //   .attr("y", height+2)
+        //   .attr("width", width)
+        //   .attr("height", 12)
+        //   .attr("fill", "silver")
+        //   .attr("stroke", "none");
+
+        // g.selectAll("eventLine")
+        //   .data(events)
+        // .enter().append("line")
+        //   .attr("stroke", "#1E8449")
+        //   .attr("stroke-width", 1.5)
+        //   // .attr("stroke-linecap", "round")
+        //   .attr("opacity", 0.15)
+        //   .attr("x1", d => xScale(dateValue(d)))
+        //   .attr("y1", -10)
+        //   .attr("x2", d => xScale(dateValue(d)))
+        //   .attr("y2", -2);
+      }
+
 
       g.append("line")
         .attr("stroke", "black")
-        .attr("opacity", 0.5)
+        .attr("stroke-width", 2)
+        .attr("stroke-linecap", "round")
+        // .attr("opacity", 0.35)
         .attr("x1", xScale(0))
-        .attr("y1", -4)
+        .attr("y1", -12)
         .attr("x2", xScale(0))
-        .attr("y2", height+4);
+        .attr("y2", height);
 
       if (showLine) {
         g.append("path")
           .datum(chartData)
         .attr("class", "line")
           .attr("d", line)
-          .attr("clip-path", `url(#clip_${chartID})`)
-          // .attr("clip-path", "url(#clip)")
           .attr("fill", "none")
           .attr("stroke", "steelblue")
           .attr("stroke-linejoin", "round")
+          .attr("stroke-linecap", "round")
           .attr("stroke-width", "1px");
       }
 
@@ -204,36 +348,39 @@ var eventOffsetLineChart = function () {
         g.selectAll("dot")
           .data(chartData)
         .enter().append("circle")
-          .attr("clip-path", `url(#clip_${chartID})`)
+          // .attr("clip-path", `url(#clip_${chartID})`)
           // .attr("clip-path", "url(#clip)")
           .attr("r", 3)
           .attr("fill", pointColor)
           .attr("stroke", "none")
           .attr("cx", function(d) { return xScale(dateValue(d)); })
-          .attr("cy", function(d) { return yScale(yValue(d)); });
+          .attr("cy", function(d) { return yScale(yValue(d)); })
+          .append("title")
+            .text(d => `Time: ${dateValue(d)}\nValue: ${yValue(d)}`);
       }
 
       yAxis = d3.axisLeft(yScale)
         .tickSize(-width)
         .ticks(6)
-        .tickPadding(10);
+        .tickPadding(8);
 
       g.append("g")
         .attr("class", "axis axis--y")
         .call(yAxis);
       g.selectAll(".tick line").attr('opacity', 0.15);
+      g.selectAll(".domain").remove();
 
       xAxis = d3.axisBottom(xScale);
       g.append("g")
         .attr("class", "axis axis--x")
-        .attr("transform", "translate(0," + height + ")")
+        .attr("transform", "translate(0," + (height) + ")")
         .call(xAxis);
-      g.selectAll(".domain").remove();
+      // g.selectAll(".domain").attr('opacity', 0.15);
 
       if (titleText) {
         g.append("text")
           .attr("x", 0)
-          .attr("y", -10)
+          .attr("y", -18)
           .style("text-anchor", "start")
           .style("font-weight", "bold")
           .style("font-size", 12)
@@ -346,18 +493,18 @@ var eventOffsetLineChart = function () {
     }
     curveFunction = value;
     
-      line = d3.line()
-        .curve(curveFunction)
-        .x(function(d) { return xScale(dateValue(d)); })
-        .y(function(d) { return yScale(yValue(d)); });
-      rangeArea = d3.area()
-        .curve(curveFunction)
-        .x(function(d) { return xScale(dateValue(d)); })
-        .y0(function(d) { return yScale(lowValue(d)); })
-        .y1(function(d) { return yScale(highValue(d)); });
-    if (svg) {
-      drawChart();
-    }
+    //   line = d3.line()
+    //     .curve(curveFunction)
+    //     .x(function(d) { return xScale(dateValue(d)); })
+    //     .y(function(d) { return yScale(yValue(d)); });
+    //   rangeArea = d3.area()
+    //     .curve(curveFunction)
+    //     .x(function(d) { return xScale(dateValue(d)); })
+    //     .y0(function(d) { return yScale(lowValue(d)); })
+    //     .y1(function(d) { return yScale(highValue(d)); });
+    // if (svg) {
+    //   drawChart();
+    // }
     return chart;
   }
 
@@ -372,25 +519,35 @@ var eventOffsetLineChart = function () {
     return chart;
   }
 
-  chart.lowValue = function (value) {
+  chart.outerRangeMinValue = function (value) {
     if (!arguments.length) {
-      return lowValue;
+      return outerRangeMinValue;
     }
-    lowValue = value;
-    if (svg) {
-      drawChart();
-    }
+    outerRangeMinValue = value;
     return chart;
   }
 
-  chart.highValue = function (value) {
+  chart.outerRangeMaxValue = function (value) {
     if (!arguments.length) {
-      return highValue;
+      return outerRangeMaxValue;
     }
-    highValue = value;
-    if (svg) {
-      drawChart();
+    outerRangeMaxValue = value;
+    return chart;
+  }
+
+  chart.innerRangeMinValue = function (value) {
+    if (!arguments.length) {
+      return innerRangeMinValue;
     }
+    innerRangeMinValue = value;
+    return chart;
+  }
+
+  chart.innerRangeMaxValue = function (value) {
+    if (!arguments.length) {
+      return innerRangeMaxValue;
+    }
+    innerRangeMaxValue = value;
     return chart;
   }
 
@@ -422,6 +579,24 @@ var eventOffsetLineChart = function () {
     }
     titleText = value;
     return chart
+  }
+
+  chart.events = function (value) {
+    if (!arguments.length) {
+      return events;
+    }
+    
+    events = value;
+    // console.log(events);
+    return chart;
+  }
+
+  chart.eventText = function (value) {
+    if (!arguments.length) {
+      return eventText;
+    }
+    eventText = value;
+    return chart;
   }
 
   return chart;
