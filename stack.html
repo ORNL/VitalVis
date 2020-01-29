@@ -83,6 +83,13 @@
             </div>
           </div>
         </form>
+
+        <div class="alert alert-info m-4 alert-dismissible fade show" role="alert">
+          Double-click on a chart to zoom in. Hold down the shift key and double-click to zoom out.
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
         
         <div class="modal fade" id="settingsModal" tabindex="-1" role="dialog" aria-labelledby="settingsModalLabel" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered" role="document">
@@ -204,9 +211,6 @@
         const files = document.getElementById('fileInput').files;
         if (files) {
           readFiles(files, (fileData) => {
-            // console.log('file read complete');
-            // console.log(fileData);
-
             $('#fileDataSelect').find('option').remove();
             removeCharts();
 
@@ -221,42 +225,8 @@
                 fileDataSelectChanged();
               }
             });
-            // console.log(fileDataMap);
-            // fileDataSelectChanged();
           });
         }
-        // const files = document.getElementById('fileInput').files;
-        // if (files) {
-        //   $('#fileDataSelect').find('option').remove();
-        //   removeCharts();
-        //   fileDataMap = new Map();
-        //   for (let i = 0; i < files.length; i++) {
-        //     const file = files[i];
-        //     const reader = new FileReader();
-        //     reader.onload = (f) => {
-        //       let fileData;
-        //       // console.log(file);
-        //       if (file.name.endsWith(".json")) {
-        //         let data = JSON.parse(reader.result);
-        //         fileData = processJSONData(data);
-        //       } else if (file.name.endsWith(".csv")) {
-        //         const data = d3.csvParse(reader.result, type);
-        //         fileData = processCSVData(data);
-        //       }
-        //       console.log(fileData);
-        //       // const fileData = d3.csvParse(reader.result, type);
-        //       fileDataMap.set(file.name, fileData);
-        //       // console.log($(".selected-file-data"));
-        //       let fileOption = document.createElement('option');
-        //       fileOption.text = file.name;
-        //       document.getElementById('fileDataSelect').append(fileOption);
-        //       if (fileDataMap.size == 1) {
-        //         fileDataSelectChanged();
-        //       }
-        //     }
-        //     reader.readAsText(file);
-        //   }
-        // }
       };
 
       const fileDataSelectChanged = () => {
@@ -275,107 +245,6 @@
           return 1;
         return 0;
       };
-
-
-      // const processJSONData = (data) => {
-      //   const fileDateExtent = [null, null];
-      //   data.drugs.forEach(d => {
-      //     d.time = new Date(d.time);
-      //     if (!fileDateExtent[0] || d.time < fileDateExtent[0]) {
-      //       fileDateExtent[0] = d.time;
-      //     }
-      //     if (!fileDateExtent[1] || d.time > fileDateExtent[1]) {
-      //       fileDateExtent[1] = d.time;
-      //     }
-      //   });
-
-      //   data.fluids.forEach(d => {
-      //     d.time = new Date(d.time);
-      //     if (!fileDateExtent[0] || d.time < fileDateExtent[0]) {
-      //       fileDateExtent[0] = d.time;
-      //     }
-      //     if (!fileDateExtent[1] || d.time > fileDateExtent[1]) {
-      //       fileDateExtent[1] = d.time;
-      //     }
-      //   });
-
-      //   data.vitals.forEach(d => {
-      //     d.time = new Date(d.time);
-      //     if (!fileDateExtent[0] || d.time < fileDateExtent[0]) {
-      //       fileDateExtent[0] = d.time;
-      //     }
-      //     if (!fileDateExtent[1] || d.time > fileDateExtent[1]) {
-      //       fileDateExtent[1] = d.time;
-      //     }
-      //   });
-
-      //   data.dateExtent = fileDateExtent;
-      //   return data;
-      // };
-
-
-      // const processCSVData = (data) => {
-      //   const dateExtent = d3.extent(data, (d) => { return d.date; });
-        
-      //   // get fluid events
-      //   let fluidData = data.filter((d) => {
-      //     return (d.Fluid_Group != 'NULL' && d.Fluid_Group.length != 0);
-      //   })
-      //   fluidData = fluidData.map((d) => {
-      //     return {
-      //       group: d.Fluid_Group,
-      //       name: d.Fluid_Name,
-      //       time: d.date,
-      //       unit: d.Fluid_Unit,
-      //       value: d.Fluid_Dosage,
-      //     };
-      //   });
-      //   fluidData.sort((a, b) => {
-      //     return a.time - b.time;
-      //   });
-
-      //   // get drug events
-      //   let drugData = data.filter((d) => {
-      //     return (d.Drug_Group != 'NULL' && d.Drug_Group.length != 0);
-      //   })
-      //   drugData = drugData.map(d => {
-      //     return {
-      //       group: d.Drug_Group,
-      //       name: d.Drug_Name,
-      //       time: d.date,
-      //       unit: d.Drug_Unit,
-      //       value: d.Drug_Dosage,
-      //     }
-      //   });
-      //   drugData.sort((a, b) => {
-      //     return a.time - b.time;
-      //   });
-
-      //   // get vital events
-      //   let vitalData = data.filter((d) => {
-      //     return (d.Vital_Group != 'NULL' && d.Vital_Group.length != 0);
-      //   });
-      //   vitalData = vitalData.map(d => {
-      //     return {
-      //       group: d.Vital_Group,
-      //       name: d.Vital_Name,
-      //       time: d.date,
-      //       unit: d.Vital_Unit,
-      //       value: d.Vital_Value,
-      //     }
-      //   });
-      //   vitalData.sort((a, b) => {
-      //     return a.time - b.time;
-      //   });
-
-      //   return {
-      //     dateExtent: dateExtent,
-      //     drugs: drugData,
-      //     fluids: fluidData,
-      //     vitals: vitalData,
-      //   };
-      // };
-
 
       const loadFileData = (fileData) => {
         // console.log(fileData);
@@ -404,10 +273,6 @@
                               .key(d => d.name)
                               .entries(fileData.vitals);
         
-        // console.log(nestedVitals);
-
-        // let NIBPMergedValues = [];
-
         nestedVitals.forEach(groupNode => {
           groupNode.values.forEach(nameNode => {
             // console.log(nameNode);
@@ -430,115 +295,9 @@
           return (a.name > b.name) ? 1 : -1;
         });
 
-        // console.log(vitalsChartData);
-
         removeCharts();
         createCharts();        
       }
-
-      // const loadData = (data) => {
-      //   dateExtent = d3.extent(data, (d) => { return d.date; });
-
-      //   eventsChartData = [];
-      //   vitalsChartData = [];
-
-      //   const fluidData = data.filter((d) => {
-      //     return (d.Fluid_Group != 'NULL' && d.Fluid_Group.length != 0);
-      //   })
-
-      //   const fluidChartInfo = {
-      //     name: "Fluids",
-      //     data: fluidData,
-      //     chart: null,
-      //   };
-      //   eventsChartData.push(fluidChartInfo);
-        
-      //   const drugData = data.filter((d) => {
-      //     return (d.Drug_Group != 'NULL' && d.Drug_Group.length != 0);
-      //   })
-
-      //   const drugChartInfo = {
-      //     name: "Drugs",
-      //     data: drugData,
-      //     chart: null,
-      //   }
-      //   eventsChartData.push(drugChartInfo);
-
-      //   const vitalData = data.filter((d) => {
-      //     return (d.Vital_Group != 'NULL' && d.Vital_Group.length != 0);
-      //   });
-
-      //   const vitalGroups = d3.nest()
-      //                         .key((d) => d.Vital_Group)
-      //                         .key((d) => d.Vital_Name)
-      //                         .entries(vitalData);
-        
-      //   let bpSeriesValues = [];
-
-      //   vitalGroups.forEach(vitalGroup => {
-      //     vitalGroup.values.forEach(vitalName => {
-      //       newValues = [];
-    
-      //       if (vitalName.key === 'NIBPDias') {
-      //         vitalName.values.forEach(d => {
-      //           newValues.push({date: d.date, NIBPDias: d.Vital_Value});
-      //         });
-      //         bpSeriesValues = bpSeriesValues.concat(newValues);
-      //       } else if (vitalName.key === 'NIBPSys') {
-      //         vitalName.values.forEach(d => {
-      //           newValues.push({date: d.date, NIBPSys: d.Vital_Value});
-      //         });
-      //         bpSeriesValues = bpSeriesValues.concat(newValues);
-      //       } else if (vitalName.key === 'NIBPMean') {
-      //         vitalName.values.forEach(d => {
-      //           newValues.push({date: d.date, NIBPMean: d.Vital_Value});
-      //         });
-      //         bpSeriesValues = bpSeriesValues.concat(newValues);
-      //       } else {
-      //         vitalName.values.forEach(d => {
-      //           newValues.push({date: d.date, value: d.Vital_Value});
-      //         });
-      //         let groupSeries = {
-      //           name: `${vitalGroup.key}_${vitalName.key}`,
-      //           // name: vitalName.key,
-      //           data: newValues,
-      //           chart: null,
-      //         }
-      //         vitalsChartData.push(groupSeries);
-      //       }
-      //     });
-      //   });
-
-      //   bpSeriesValues = d3.nest()
-      //     .key((d) => d.date)
-      //     .entries(bpSeriesValues);
-      //   newBPValues = [];
-      //   bpSeriesValues.forEach(dateGroup => {
-      //     let bpValue = {};
-      //     dateGroup.values.forEach( dateValue => {
-      //       Object.keys(dateValue).forEach( function (key, index) {
-      //         bpValue[key] = dateValue[key];
-      //       })
-      //     })
-      //     newBPValues.push(bpValue);
-      //   });
-      //   vitalsChartData.push({
-      //     name: 'BloodPressure',
-      //     data: newBPValues,
-      //     chart: null,
-      //   });
-
-        
-
-      //   vitalsChartData.sort(sortChartRecord);
-      //   eventsChartData.sort(sortChartRecord);
-
-      //   console.log(vitalsChartData);
-      //   console.log(eventsChartData);
-
-      //   removeCharts();
-      //   createCharts();
-      // }
 
       const removeSpaces = (str) => {
         return str.replace(/\s+/g, '');
@@ -552,8 +311,6 @@
 
       const getCurrentCurveFunction = () => {
         const selectedCurve = $('#curveModeSelect').val();
-        // const curveSelect = document.getElementById('curveSelect');
-        // const selectedCurve = curveSelect.options[curveSelect.selectedIndex].text;
         if (selectedCurve === 'Linear') {
           return d3.curveLinear;
         } else if (selectedCurve === 'MonotoneX') {
@@ -639,12 +396,12 @@
             .zoomedHandler(function (t) {
               if (document.getElementById('syncZoomCheck').checked) {
                 vitalsChartData.forEach( function (aChart, column, map) {
-                  if (chartData.chart != aChart.chart) {
+                  if (aChart.chart && chartData.chart != aChart.chart) {
                     aChart.chart.applyTransform(t);
                   }
                 });
                 eventsChartData.forEach( function (aChart, column, map) {
-                  if (chartData.chart != aChart.chart) {
+                  if (aChart.chart != aChart.chart) {
                     aChart.chart.applyTransform(t);
                   }
                 });
@@ -675,12 +432,12 @@
               .zoomedHandler(function (t) {
                 if (document.getElementById('syncZoomCheck').checked) {
                   vitalsChartData.forEach( function (aChart, column, map) {
-                    if (chartData.chart != aChart.chart) {
+                    if (aChart.chart && chartData.chart != aChart.chart) {
                       aChart.chart.applyTransform(t);
                     }
                   });
                   eventsChartData.forEach( function (aChart, column, map) {
-                    if (chartData.chart != aChart.chart) {
+                    if (aChart.chart && chartData.chart != aChart.chart) {
                       aChart.chart.applyTransform(t);
                     }
                   });
